@@ -9,19 +9,19 @@ Dependencies are quite minimal:
 
 The algorithms implemented are the following:
 
-  * Brute Force: with early search abandon and entropy pre-pruning
-  [http://dl.acm.org/citation.cfm?id=1557122](Time series shapelets: a new primitive for data mining)
+  * **Brute Force**: with early search abandon and entropy pre-pruning
+  [Time series shapelets: a new primitive for data mining](http://dl.acm.org/citation.cfm?id=1557122)
   
-  * Genetic algorithm (could not really find a paper)
+  * **Genetic algorithm** (could not really find a paper)
   
-  * Particle Swarm Optimization
-  [http://www.ijmlc.org/vol5/521-C016.pdf](Time Series Shapelets: Training Time Improvement Based on Particle Swarm Optimization)
+  * **Particle Swarm Optimization**
+  [Time Series Shapelets: Training Time Improvement Based on Particle Swarm Optimization](http://www.ijmlc.org/vol5/521-C016.pdf)
 
 
 The following algorithms are on my TODO:
 
-  * Dynamic programming logical-shapelets
-  [http://www.cs.ucr.edu/~eamonn/LogicalShapelet.pdf](Logical-Shapelets: An Expressive Primitive for Time Series Classification)
+  * **Dynamic programming logical-shapelets**
+  [Logical-Shapelets: An Expressive Primitive for Time Series Classification](http://www.cs.ucr.edu/~eamonn/LogicalShapelet.pdf)
   
-  * Particle Swarm inspired Evolutionary Algorithm (PS-EA)
-  [http://ieeexplore.ieee.org/abstract/document/1299374/](Particle swarm inspired evolutionary algorithm (PS-EA) for multiobjective optimization problems)
+  * **Particle Swarm inspired Evolutionary Algorithm (PS-EA)**
+  [Particle swarm inspired evolutionary algorithm (PS-EA) for multiobjective optimization problems](http://ieeexplore.ieee.org/abstract/document/1299374/)
