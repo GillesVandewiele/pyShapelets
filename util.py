@@ -1,3 +1,5 @@
+from itertools import combinations
+
 import numpy as np
 from scipy.stats import entropy
 from collections import Counter
@@ -46,3 +48,35 @@ def subsequence_dist(time_serie, sub_serie):
         return min_dist, min_idx
     else:
         return None, None
+
+
+def partitions(items, k):
+    def split(indices):
+        i=0
+        for j in indices:
+            yield items[i:j]
+            i = j
+        yield items[i:]
+
+    for indices in combinations(range(1, len(items)), k-1):
+        yield list(split(indices))
+
+
+def information_gain_ub(labels):
+    # TODO: Can we find a mathematical formula for this?
+    cntr = Counter(labels)
+    all_values = list(cntr.values())
+    all_sum = sum(all_values)
+    for i in range(len(all_values)): all_values[i] /= all_sum
+    prior_entropy = calculate_entropy(all_values)
+    best_ig = 0
+
+    for left, right in partitions(list(cntr.values()), 2):
+        left_sum = sum(left)
+        right_sum = sum(right)
+        for i in range(len(left)): left[i] /= left_sum
+        for i in range(len(right)): right[i] /= right_sum
+        ig = information_gain(left, right, prior_entropy)
+        if ig > best_ig: best_ig = ig
+
+    return best_ig
