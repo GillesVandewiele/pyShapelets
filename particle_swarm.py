@@ -4,22 +4,28 @@ import numpy as np
 from deap import base, creator, algorithms, tools
 import matplotlib.pyplot as plt
 
+from util import information_gain_ub
+
 
 def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,
-                       iterations=25, verbose=True):
+                       iterations=25, verbose=True, stop_iterations=10):
 
-    candidates = np.array(generate_candidates(timeseries, labels, max_len, min_len))
+    candidates = generate_candidates(timeseries, labels, max_len, min_len)
 
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Particle", np.ndarray, fitness=creator.FitnessMax, speed=list, smin=None, smax=None, best=None)
 
-    def generate(smin, smax):
-        rand_cand = np.array(candidates[np.random.choice(range(len(candidates)), size=1)][0][0])
-        part = creator.Particle(rand_cand)
-        part.speed = np.random.uniform(smin, smax, len(rand_cand))
-        part.smin = smin
-        part.smax = smax
-        return part
+    def generate(smin, smax, n):
+        rand_cands = np.array(candidates)[np.random.choice(range(len(candidates)), size=n)]
+        parts = []
+        for rand_cand in rand_cands:
+            rand_cand = rand_cand[0]
+            part = creator.Particle(rand_cand)
+            part.speed = np.random.uniform(smin, smax, len(rand_cand))
+            part.smin = smin
+            part.smax = smax
+            parts.append(part)
+        return parts
 
     def updateParticle(part, best, phi1, phi2):
         u1 = np.random.uniform(0, phi1, len(part))
@@ -34,8 +40,7 @@ def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,
         return (check_candidate(timeseries, labels, shapelet)[0], )
 
     toolbox = base.Toolbox()
-    toolbox.register("particle", generate, smin=-0.25, smax=0.25)
-    toolbox.register("population", tools.initRepeat, list, toolbox.particle)
+    toolbox.register("population", generate, smin=-0.25, smax=0.25)
     toolbox.register("update", updateParticle, phi1=1, phi2=1)
     toolbox.register("evaluate", cost)
 
@@ -48,10 +53,14 @@ def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,
     logbook = tools.Logbook()
     logbook.header = ["gen", "evals"] + stats.fields
 
-    GEN = 1000
+    GEN = 10000
     best = None
+    it_wo_improvement = 0
+
+    gain_ub = information_gain_ub(labels)
 
     for g in range(GEN):
+        it_wo_improvement += 1
         for part in pop:
             part.fitness.values = toolbox.evaluate(part)
             if part.best is None or part.best.fitness < part.fitness:
@@ -60,6 +69,7 @@ def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,
             if best is None or best.fitness < part.fitness:
                 best = creator.Particle(part)
                 best.fitness.values = part.fitness.values
+                it_wo_improvement = 0
         for part in pop:
             toolbox.update(part, best)
 
@@ -67,4 +77,7 @@ def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,
         logbook.record(gen=g, evals=len(pop), **stats.compile(pop))
         print(logbook.stream)
 
-    return pop, logbook, best
+        if it_wo_improvement == stop_iterations or best.fitness.values[0] >= gain_ub:
+            break
+
+    return best

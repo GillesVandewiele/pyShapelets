@@ -5,7 +5,7 @@ from scipy.stats import entropy
 from collections import Counter
 
 
-def euclidian_distance(a, b, min_dist=np.inf):
+def euclidean_distance(a, b, min_dist=np.inf):
     if min_dist == np.inf:
         return np.linalg.norm(a-b, ord=2)
 
@@ -16,6 +16,21 @@ def euclidian_distance(a, b, min_dist=np.inf):
         dist += (float(x)-float(y))**2
         if dist >= min_dist: return np.inf
     return dist
+
+
+def normalized_euclidean_distance(a, b):
+    """
+    Calculate the normalized (z-normalization and length normalization) euclidean distance between a sub- and timeseries
+    # Reference: http://www.cs.ucr.edu/~eamonn/LogicalShapelet.pdf
+    :param a: list, the subserie (shapelet)
+    :param b: list, the timeseries
+    :return: the normalized euclidean distance
+    """
+    s_x = np.cumsum(a)
+    s_x_sqr = np.multiply(s_x, s_x)
+    s_y = np.cumsum(b)
+    s_y_sqr = np.multiply(s_y, s_y)
+    pass
 
 
 def calculate_entropy(probabilities):
@@ -43,7 +58,7 @@ def subsequence_dist(time_serie, sub_serie):
     if len(sub_serie) < len(time_serie):
         min_dist, min_idx = float("inf"), -1
         for i in range(len(time_serie)-len(sub_serie)+1):
-            dist = euclidian_distance(sub_serie, time_serie[i:i + len(sub_serie)], min_dist)
+            dist = euclidean_distance(sub_serie, time_serie[i:i + len(sub_serie)], min_dist)
             if dist is not None and dist < min_dist: min_dist, min_idx = dist, i
         return min_dist, min_idx
     else:

@@ -31,7 +31,7 @@ def find_shapelets_ps_ea(timeseries, labels, max_len=100, min_len=1, particles=2
         for i in range(len(probs)):
             j = np.random.choice(len(probs), size=1)[0]
             p, p2 = probs[i], probs[j]
-            mut = np.random.uniform(-min(p, p2), min(p, p2), size=1)[0]
+            mut = np.random.uniform(0, p2, size=1)[0]
             probs[i] += mut
             probs[j] -= mut
         return probs
@@ -60,7 +60,7 @@ def find_shapelets_ps_ea(timeseries, labels, max_len=100, min_len=1, particles=2
 
     prev_fitness = 0
     for g in range(GEN):
-        print(probs)
+        print(probs, sum(probs))
         popbest = None
         for part in pop:
             part.fitness.values = toolbox.evaluate(part)

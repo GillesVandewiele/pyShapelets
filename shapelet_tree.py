@@ -1,4 +1,6 @@
 import operator
+import numpy as np
+from util import subsequence_dist
 
 
 class ShapeletTree(object):
@@ -23,8 +25,11 @@ class ShapeletTree(object):
             else:
                 return self.right.evaluate(time_serie, proba=proba)
 
-    def predict(self, time_serie):
-        return self.evaluate(time_serie, proba=False)
+    def predict(self, time_series):
+        results = np.zeros((len(time_series), 1))
+        for i, time_serie in enumerate(time_series):
+                results[i] = self.evaluate(time_serie, proba=False)
+        return results
 
     def predict_proba(self, time_serie):
         return self.evaluate(time_serie, proba=True)

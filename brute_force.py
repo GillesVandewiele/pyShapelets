@@ -66,9 +66,10 @@ def find_best_split_point(distances):
     labels_all = [x[1] for x in distances]
     prior_entropy = calculate_dict_entropy(labels_all)
     best_distance, max_ig = 0, 0
-    for i in range(len(distances)):
-        labels_left = [x[1] for x in distances[:i]]
-        labels_right = [x[1] for x in distances[i:]]
+    for i in range(len(distances)-1):
+        while distances[i] == distances[i+1]: i+=1  # skip equal distances
+        labels_left = [x[1] for x in distances[:i+1]]
+        labels_right = [x[1] for x in distances[i+1:]]
         ig = information_gain(labels_left, labels_right, prior_entropy)
         if ig > max_ig:
             best_distance, max_ig = distances[i][0], ig
