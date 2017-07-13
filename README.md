@@ -17,11 +17,13 @@ The algorithms implemented are the following:
   * **Particle Swarm Optimization**
   [Time Series Shapelets: Training Time Improvement Based on Particle Swarm Optimization](http://www.ijmlc.org/vol5/521-C016.pdf)
 
+  * **Particle Swarm inspired Evolutionary Algorithm (PS-EA)**
+  [Particle swarm inspired evolutionary algorithm (PS-EA) for multiobjective optimization problems](http://ieeexplore.ieee.org/abstract/document/1299374/)
 
 The following algorithms are on my TODO:
 
   * **Dynamic programming logical-shapelets**
   [Logical-Shapelets: An Expressive Primitive for Time Series Classification](http://www.cs.ucr.edu/~eamonn/LogicalShapelet.pdf)
   
-  * **Particle Swarm inspired Evolutionary Algorithm (PS-EA)**
-  [Particle swarm inspired evolutionary algorithm (PS-EA) for multiobjective optimization problems](http://ieeexplore.ieee.org/abstract/document/1299374/)
+ * **Evolutionary Stratgies**
+ [Evolution strategies: a comprehensive introduction](https://trivium.revues.org/3664)
