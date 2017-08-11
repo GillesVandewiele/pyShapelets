@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Charts with Bokeh!</title>
+    <script src="http://cdn.pydata.org/bokeh/release/bokeh-0.12.6.min.js"></script>
+    <script src="http://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.6.min.js"></script>
+
+    <script src="{{ url_for('static', filename = 'Treant/vendor/raphael.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'Treant/Treant.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename = 'jquery.easing.min.js') }}"></script>
+
+    <style>
+      {% include 'styles.css' %}
+      .node {
+        width: 100px;
+        height: 100px;
+        border-style: solid;
+        border-width: 3px;
+      }
+      .left_child {
+        border-color: green;
+      }
+      .right_child {
+        border-color: red;
+      }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'Treant/Treant.css') }}" type="text/css"/>
+  </head>
+  <body>
+    <h1>Shapelet tree</h1>
+    <!--<div style='width: 600px; overflow-x: scroll;'>
+      {{ the_div|safe }}
+    </div>-->
+    <div id='tree-simple' style="width:600px; height: 500px"> </div>
+    <script>
+      simple_chart_config = {{node_json|safe}};
+      var my_chart = new Treant(simple_chart_config);
+    </script>
+    {% for x in node_scripts %}
+      {{x|safe}}
+    {% endfor %}
+  </body>
+</html>
