@@ -3,8 +3,7 @@ import numpy as np
 from collections import Counter
 import time
 
-from util.util import subsequence_dist, calculate_entropy, calculate_dict_entropy, information_gain, information_gain_ub, \
-    partitions
+from pyshapelets.util import util
 
 
 def generate_candidates(timeseries, labels, max_len, min_len):
@@ -21,7 +20,7 @@ def entropy_pre_prune(label_counter, distances):
     # TODO: Can we again calculate this mathematically?
     # TODO: rewrite this ugly thing
     max_ig = 0
-    for left, right in partitions(list(label_counter.items()), 2):
+    for left, right in util.partitions(list(label_counter.items()), 2):
         left_keys = [x[0] for x in left]
         left_values = [x[1] for x in left]
         right_keys = [x[0] for x in right]
@@ -48,7 +47,7 @@ def check_candidate(timeseries, labels, shapelet, min_prune_length=20, best_ig=N
     distances = []
     cntr = Counter(labels)
     for time_serie, label in zip(timeseries, labels):
-        d, idx = subsequence_dist(time_serie, shapelet)
+        d, idx = util.subsequence_dist(time_serie, shapelet)
         distances.append((d, label))
         max_ig = None
         if best_ig is not None:
@@ -64,13 +63,13 @@ def check_candidate(timeseries, labels, shapelet, min_prune_length=20, best_ig=N
 def find_best_split_point(distances):
     # TODO: make use of histograms (if a lot of distances are the same, this will run faster)
     labels_all = [x[1] for x in distances]
-    prior_entropy = calculate_dict_entropy(labels_all)
+    prior_entropy = util.calculate_dict_entropy(labels_all)
     best_distance, max_ig = 0, 0
     for i in range(len(distances)-1):
         while distances[i] == distances[i+1]: i+=1  # skip equal distances
         labels_left = [x[1] for x in distances[:i+1]]
         labels_right = [x[1] for x in distances[i+1:]]
-        ig = information_gain(labels_left, labels_right, prior_entropy)
+        ig = util.information_gain(labels_left, labels_right, prior_entropy)
         if ig > max_ig:
             best_distance, max_ig = distances[i][0], ig
     return max_ig, best_distance
@@ -79,7 +78,7 @@ def find_best_split_point(distances):
 def find_shapelets_bf(timeseries, labels, max_len=100, min_len=1, verbose=True):
     candidates = generate_candidates(timeseries, labels, max_len, min_len)
     bsf_gain, bsf_shapelet = 0, None
-    gain_ub = information_gain_ub(labels)
+    gain_ub = util.information_gain_ub(labels)
     print(Counter(labels), 'UPPER BOUND =', gain_ub)
     if verbose: candidates_length = len(candidates)
     total_start = time.time()

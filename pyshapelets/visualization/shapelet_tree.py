@@ -1,6 +1,6 @@
 import operator
 import numpy as np
-from util import subsequence_dist
+from pyshapelets.util.util import subsequence_dist
 
 
 class ShapeletTree(object):

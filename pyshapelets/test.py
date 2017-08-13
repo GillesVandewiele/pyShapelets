@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from shapelet_extraction.extract_shapelets import fit, extract_shapelet
+from pyshapelets.shapelet_extraction.extract_shapelets import fit, extract_shapelet
 
 # def adjustProbabilities(probs):
 #     for i in range(len(probs)):
@@ -14,9 +14,9 @@ from shapelet_extraction.extract_shapelets import fit, extract_shapelet
 # print(adjustProbabilities([0.1,0.1,0.1,0.5,0.1,0.1]))
 
 # # Read in the coffee dataset
-from util import calculate_stats
-from util import calculate_stats_old
-from visualization import run
+from pyshapelets.util.util import calculate_stats
+from pyshapelets.util.util import calculate_stats_old
+from pyshapelets.visualization.visualization import run
 
 # data = pd.read_csv('data/Coffee.csv', header=None)
 # # data = data.sample(20)
@@ -61,19 +61,18 @@ data.columns = feature_cols + ['label']
 labels = data['label'].values
 timeseries = data.drop('label', axis=1).values
 
-m_uv = calculate_stats(timeseries[0], timeseries[1])[4]
-m_uv_old = calculate_stats_old(timeseries[0], timeseries[1])[4]
-
-print(m_uv.shape)
-print(m_uv_old.shape)
-
-for i in range(m_uv.shape[0]):
-    for j in range(m_uv.shape[1]):
-        if m_uv[i, j] != m_uv_old[i, j]:
-            print(i, j, m_uv[i,j], m_uv_old[i,j])
-    input()
-
-assert np.array_equal(m_uv, m_uv_old)
+m_uv = np.around(calculate_stats(timeseries[0], timeseries[1])[4], 7)
+# m_uv_old = np.around(calculate_stats_old(timeseries[0], timeseries[1])[4], 7)
+#
+# print(m_uv.shape)
+# print(m_uv_old.shape)
+#
+# for i in range(m_uv.shape[0]):
+#     for j in range(m_uv.shape[1]):
+#         if float(m_uv[i, j]) != float(m_uv_old[i, j]):
+#             print(i, j, m_uv[i,j], m_uv_old[i,j])
+#
+# assert np.array_equal(m_uv, m_uv_old)
 
 if __name__ == "__main__":
     print('Fitting tree')
