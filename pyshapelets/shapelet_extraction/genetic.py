@@ -1,4 +1,4 @@
-from shapelet_extraction.brute_force import generate_candidates, check_candidate
+from pyshapelets.shapelet_extraction.brute_force import generate_candidates, check_candidate
 
 import numpy as np
 from deap import base, creator, algorithms, tools

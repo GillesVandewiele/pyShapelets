@@ -14,7 +14,7 @@ from pyshapelets.shapelet_extraction.extract_shapelets import fit, extract_shape
 # print(adjustProbabilities([0.1,0.1,0.1,0.5,0.1,0.1]))
 
 # # Read in the coffee dataset
-from pyshapelets.util.util import calculate_stats
+from pyshapelets.util.util import calculate_stats, subsequence_dist, subsequence_dist_z_space, sdist_new
 from pyshapelets.util.util import calculate_stats_old
 from pyshapelets.visualization.visualization import run
 
@@ -34,12 +34,14 @@ from pyshapelets.visualization.visualization import run
 # 0.12408303257700161 per iteration
 
 data = pd.read_csv('data/Beef.csv', header=None)
-data = data.sample(10, random_state=1337)
+data = data.sample(25 , random_state=1337)
 
 # Set the column names
 feature_cols = []
 for i in range(470): feature_cols.append('x_'+str(i))
 data.columns = feature_cols + ['label']
+
+# data = data[data['label'] > 0]
 
 # data = pd.read_csv('data/Wine.csv', header=None)
 # # data = data.sample(20)
@@ -61,7 +63,7 @@ data.columns = feature_cols + ['label']
 labels = data['label'].values
 timeseries = data.drop('label', axis=1).values
 
-m_uv = np.around(calculate_stats(timeseries[0], timeseries[1])[4], 7)
+# m_uv = np.around(calculate_stats(timeseries[0], timeseries[1])[4], 7)
 # m_uv_old = np.around(calculate_stats_old(timeseries[0], timeseries[1])[4], 7)
 #
 # print(m_uv.shape)
@@ -74,9 +76,51 @@ m_uv = np.around(calculate_stats(timeseries[0], timeseries[1])[4], 7)
 #
 # assert np.array_equal(m_uv, m_uv_old)
 
+print(labels)
+print(timeseries)
+
 if __name__ == "__main__":
     print('Fitting tree')
-    extract_shapelet(timeseries, labels)
+    tree = extract_shapelet(timeseries, labels)
+
+    print(tree.shapelet)
+    print(tree.distance)
+
+    distances = []
+
+    for ts, label in zip(timeseries, labels):
+        d, idx = subsequence_dist(ts, tree.shapelet)
+        distances.append((d, label))
+
+    print([x for x in sorted(distances, key=lambda x: x[0])])
+
+    distances = []
+
+    for ts, label in zip(timeseries, labels):
+        stats = calculate_stats(tree.shapelet, ts)
+        d = sdist_new(tree.shapelet, ts, 0, stats)
+        distances.append((d, label))
+
+    print([x for x in sorted(distances, key=lambda x: x[0])])
+
+    distances = []
+
+    for ts, label in zip(timeseries, labels):
+        stats = calculate_stats(tree.right.shapelet, ts)
+        d = sdist_new(tree.right.shapelet, ts, 0, stats)
+        distances.append((d, label))
+
+    print([x for x in sorted(distances, key=lambda x: x[0])])
+
+
+    # tree.populate_class_probs(timeseries[:-1], labels[:-1])
+    # tree.recalculate_distances(timeseries[:-1], labels[:-1])
+
+    for ts, label in zip(timeseries, labels):
+        print(label)
+        print(tree.predict([ts], z_norm=True))
+        print('-'*100)
+
     # tree = fit(timeseries, labels, max_len=50, min_len=50)
     # print('Creating visualization')
     # run(tree)

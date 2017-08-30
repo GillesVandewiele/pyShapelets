@@ -45,23 +45,22 @@ def entropy_pre_prune(label_counter, distances):
 
 def check_candidate(timeseries, labels, shapelet, min_prune_length=20, best_ig=None):
     distances = []
-    cntr = Counter(labels)
+    # cntr = Counter(labels)
     for time_serie, label in zip(timeseries, labels):
         d, idx = util.subsequence_dist(time_serie, shapelet)
         distances.append((d, label))
-        max_ig = None
-        if best_ig is not None:
-            cntr[label] -= 1
-            if len(distances) > min_prune_length:
-                max_ig = entropy_pre_prune(cntr, distances)
-        if max_ig is not None and max_ig <= best_ig:
-            return 0, 0
+        # max_ig = None
+        # if best_ig is not None:
+        #     cntr[label] -= 1
+        #     if len(distances) > min_prune_length:
+        #         max_ig = entropy_pre_prune(cntr, distances)
+        # if max_ig is not None and max_ig <= best_ig:
+        #     return 0, 0
 
     return find_best_split_point(sorted(distances, key=lambda x: x[0]))
 
 
 def find_best_split_point(distances):
-    # TODO: make use of histograms (if a lot of distances are the same, this will run faster)
     labels_all = [x[1] for x in distances]
     prior_entropy = util.calculate_dict_entropy(labels_all)
     best_distance, max_ig = 0, 0

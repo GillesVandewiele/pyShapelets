@@ -15,8 +15,8 @@ __license__ = "none"
 def test_calculate_stats():
     # Generate two random vectors
     np.random.seed(1337)
-    a = np.random.random(100)
-    b = np.random.random(100)
+    a = np.random.random(500)
+    b = np.random.random(500)
 
     # So calculate_stats is supposed to return 5 arrays:
     # The cumulative sum of a
@@ -66,7 +66,19 @@ def test_calculate_stats():
     # Let's calculate the arrays with our method
     start = time.time()
     s_x_2, s_x_sqr_2, s_y_2, s_y_sqr_2, m_uv_2 = util.calculate_stats(a, b)
-    print('\nMethod with numpy function takes', time.time() - start, 'seconds')
+    print('\nMethodology from original CPP code took', time.time() - start, 'seconds')
+
+    start = time.time()
+    m_uv_3 = np.zeros((len(a) + 1, len(b) + 1))
+    for u in range(len(a)):
+        for v in range(len(b)):
+            t = abs(u-v)
+            if u > v:
+                m_uv_3[u+1, v+1] = m_uv_3[u, v] + a[v+t]*b[v]
+            else:
+                m_uv_3[u+1, v+1] = m_uv_3[u, v] + a[u]*b[u+t]
+    print('\nMethodology with dynamic programming took', time.time() - start, 'seconds')
+
 
     # Are they 'almost' equal (up to 7 decimals)
     np.testing.assert_almost_equal(s_x, s_x_2)
@@ -74,6 +86,7 @@ def test_calculate_stats():
     np.testing.assert_almost_equal(s_y, s_y_2)
     np.testing.assert_almost_equal(s_y_sqr, s_y_sqr_2)
     np.testing.assert_almost_equal(m_uv, m_uv_2)
+    np.testing.assert_almost_equal(m_uv_2, m_uv_3)
 
 
 def test_calculate_entropy():

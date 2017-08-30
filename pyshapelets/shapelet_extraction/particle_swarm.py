@@ -1,10 +1,10 @@
-from shapelet_extraction.brute_force import generate_candidates, check_candidate
+from pyshapelets.shapelet_extraction.brute_force import generate_candidates, check_candidate
 
 import numpy as np
 from deap import base, creator, algorithms, tools
 import matplotlib.pyplot as plt
 
-from util.util import information_gain_ub
+from pyshapelets.util.util import information_gain_ub
 
 
 def find_shapelets_pso(timeseries, labels, max_len=100, min_len=1, particles=25,

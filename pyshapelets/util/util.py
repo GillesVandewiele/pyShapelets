@@ -4,14 +4,13 @@ import numpy as np
 import time
 from scipy.stats import entropy
 from collections import Counter
+import math
 
 
 def euclidean_distance(a, b, min_dist=np.inf):
     if min_dist == np.inf:
-        return np.linalg.norm(a-b, ord=2)
+        return np.sum(np.power(a-b, 2))
 
-    # If a min_dist is given, we apply early stopping
-    # TODO: bench if this early stopping every performs better than a numpy function
     dist = 0
     for x, y in zip(a, b):
         dist += (float(x)-float(y))**2
@@ -30,7 +29,34 @@ def calculate_stats(a, b):
     s_x_sqr = np.append([0], np.cumsum(np.power(a, 2)))
     s_y = np.append([0], np.cumsum(b))
     s_y_sqr = np.append([0], np.cumsum(np.power(b, 2)))
-    m_uv = np.zeros((len(a)+1, len(b)+1))
+
+    # s_x = np.cumsum(a)
+    # s_x_sqr = np.cumsum(np.power(a, 2))
+    # s_y = np.cumsum(b)
+    # s_y_sqr = np.cumsum(np.power(b, 2))
+
+    # m_uv = np.zeros((len(a), len(b)))
+    # L = max(len(a), len(b))
+    # for k in range(L):
+    #     if k < len(a):
+    #         m_uv[k][0] = a[k] * b[0]
+    #         i, j = k + 1, 1
+    #         while i < len(a) and j < len(b):
+    #             m_uv[i][j] = m_uv[i - 1][j - 1] + a[i] * b[j]
+    #             i += 1
+    #             j += 1
+    #
+    #     if k < len(b):
+    #         m_uv[0][k] = a[0] * b[k]
+    #         i, j = 1, k + 1
+    #         while i < len(a) and j < len(b):
+    #             m_uv[i][j] = m_uv[i - 1][j - 1] + a[i] * b[j]
+    #             i += 1
+    #             j += 1
+    # m_uv = np.vstack((np.zeros((1, m_uv.shape[1])), m_uv))
+    # m_uv = np.hstack((np.zeros((m_uv.shape[0], 1)), m_uv))
+
+    m_uv = np.zeros((len(a) + 1, len(b) + 1))
     for u in range(len(a)):
         for v in range(len(b)):
             t = abs(u-v)
@@ -38,6 +64,7 @@ def calculate_stats(a, b):
                 m_uv[u+1, v+1] = m_uv[u, v] + a[v+t]*b[v]
             else:
                 m_uv[u+1, v+1] = m_uv[u, v] + a[u]*b[u+t]
+    # m_uv = m_uv[1:, 1:]
     return s_x, s_x_sqr, s_y, s_y_sqr, m_uv
 
 
@@ -99,23 +126,25 @@ def calculate_dict_entropy(data):
 
 def information_gain(labels_left, labels_right, prior_entropy):
     total_length = len(labels_left) + len(labels_right)
+    if total_length == 0:
+        print('break')
     ig_left = float(len(labels_left)) / total_length * calculate_dict_entropy(labels_left)
     ig_right = float(len(labels_right)) / total_length * calculate_dict_entropy(labels_right)
     return prior_entropy - (ig_left + ig_right)
 
 
 def subsequence_dist(time_serie, sub_serie):
-    if len(sub_serie) < len(time_serie):
+    if len(sub_serie) <= len(time_serie):
         min_dist, min_idx = float("inf"), -1
         for i in range(len(time_serie)-len(sub_serie)+1):
             dist = euclidean_distance(sub_serie, time_serie[i:i + len(sub_serie)], min_dist)
             if dist is not None and dist < min_dist: min_dist, min_idx = dist, i
         return min_dist, min_idx
     else:
-        return None, None
+        return subsequence_dist(sub_serie, time_serie)
 
 
-def subsequence_dist_fast(time_serie, sub_serie, stats):
+def subsequence_dist_z_space(time_serie, sub_serie, stats):
     if len(sub_serie) < len(time_serie):
         min_dist, min_idx = float("inf"), -1
         for i in range(len(time_serie)-len(sub_serie)+1):
@@ -146,28 +175,33 @@ def sdist(x, y):
 
         return min_dist/len(x)
 
-# s_x, s_x_sqr, s_y, s_y_sqr, m_uv
+
 def sdist_new(x, y, i, stats):
     # i = start_position in time serie where x is from
-    if len(x) > len(y):
+    l = len(x)
+    if l > len(y):
         return sdist_new(y, x, i, stats)
+    elif l == 1:
+        return np.min(np.abs(np.add(y, -x)))  # Return the value closest to x
     else:
         min_dist = np.inf
-        for v in range(1, len(y) - len(x) + 2):
-            xy = stats[4][i + len(x), v + len(x) - 1] - stats[4][i, v - 1]
-            mu_x = (stats[0][i + len(x)] - stats[0][i]) / len(x)
-            mu_y = (stats[2][v + len(x) - 1] - stats[2][v - 1]) / len(x)
-            sigma_x = (stats[1][i + len(x)] - stats[1][i]) / len(x) - mu_x ** 2
-            sigma_y = (stats[3][v + len(x) - 1] - stats[3][v - 1]) / len(x) - mu_y ** 2
+        mu_x = (stats[0][i + l] - stats[0][i]) / l
+        sigma_x = (stats[1][i + l] - stats[1][i]) / l - mu_x ** 2
+        for v in range(len(y) - l + 1):
+            xy = stats[4][i + l, v + l] - stats[4][i, v]
+            mu_y = (stats[2][v + l] - stats[2][v]) / l
+            sigma_y = (stats[3][v + l] - stats[3][v]) / l - mu_y ** 2
 
-            C = (xy - len(x)*mu_x*mu_y) / (len(x) * np.sqrt(sigma_x * sigma_y))
-            # if C > 1:
-            print(1-C, xy, mu_x, mu_y, sigma_x, sigma_y)
-            dist = (2*(1 - C)) ** 0.5
+            C = (xy - l*mu_x*mu_y) / (l * math.sqrt(sigma_x * sigma_y))
 
-            min_dist = min(dist, min_dist)
+            if C <= 1:
+                dist = 2*l*(1 - C)
+                min_dist = min(dist, min_dist)
+            # else:
+            #     min_dist = 0
 
-        return min_dist ** 0.5
+        return math.sqrt(min_dist)
+
 
 def upperIG(L, R, timeseries, labels):
     """ Calculate an upper bound on the information gain for a new candidate
@@ -199,7 +233,7 @@ def upperIG(L, R, timeseries, labels):
             p += 1
         left_partition_counter = Counter(left_partition)
 
-        while L[p][0] < tau + R:
+        while p < len(L) and L[p][0] < tau + R:
             points_to_consider.append(p)
             p += 1
         while p < len(L):
@@ -208,19 +242,26 @@ def upperIG(L, R, timeseries, labels):
         right_partition_counter = Counter(right_partition)
 
         for transfer_direction in list(product([0,1], repeat=C)):
+            temp_right_partition = []
+            temp_left_partition = []
             for p in points_to_consider:
                 if transfer_direction[class_mapping[L[p][1]]]:
                     # Move the point to its majority end
                     if left_partition_counter[L[p][1]] > right_partition_counter[L[p][1]]:
-                        left_partition.append(L[p][1])
+                        temp_left_partition.append(L[p][1])
                     else:
-                        right_partition.append(L[p][1])
-            ig = information_gain(left_partition, right_partition, prior_entropy)
+                        temp_right_partition.append(L[p][1])
+                else:
+                    if L[p][0] <= tau:
+                        temp_left_partition.append(L[p][1])
+                    else:
+                        temp_right_partition.append(L[p][1])
+
+            ig = information_gain(left_partition + temp_left_partition, right_partition + temp_right_partition,
+                                  prior_entropy)
             max_ig = max(ig, max_ig)
 
     return max_ig
-
-
 
 
 def partitions(items, k):
