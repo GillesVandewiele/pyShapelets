@@ -37,7 +37,7 @@ def best_ig(L, max_gain, max_gap):
 
 def z_norm(x):
     """Normalize time series such that it has zero mean and unit variance"""
-    # IMPORTANT: faster than scipy.stats.zscore for smaller arrays
+    # IMPORTANT: faster than scipy.stats.zscore for smaller arrays (< 1 mill)
     mu_x = np.mean(x)
     sigma_x = np.std(x)
     if sigma_x == 0: sigma_x = 1
