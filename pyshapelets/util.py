@@ -1,12 +1,64 @@
 import numpy as np
-from scipy.stats import zscore, pearsonr
+from scipy.stats import zscore, pearsonr, entropy
 import time
+from collections import Counter
+from sklearn.feature_selection import mutual_info_classif
+
+
+def best_ig(L, max_gain, max_gap):
+	# TODO: can we do this more efficiently and more clean?
+	classes = set([x[1] for x in L])
+	max_tau = (L[0][0] + L[1][0]) / 2
+	updated = False
+	for k in range(len(L) - 1):
+		tau = (L[k][0] + L[k + 1][0]) / 2
+		left_labels = [x[1] for x in L[:k+1]]
+		right_labels = [x[1] for x in L[k+1:]]
+		all_labels = left_labels + right_labels
+		left_counts = []
+		right_counts = []
+		all_counts = []
+		for c in classes:
+			left_counts.append(left_labels.count(c))
+			right_counts.append(right_labels.count(c))
+			all_counts.append(all_labels.count(c))
+		left_entropy = len(left_labels)/len(L) * entropy(left_counts)
+		right_entropy = len(right_labels)/len(L) * entropy(right_counts)
+		ig = entropy(all_counts) - left_entropy - right_entropy
+		g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
+		if ig > max_gain or (ig == max_gain and g > max_gap):
+			max_tau = tau
+			max_gain = ig
+			max_gap = g
+			updated = True
+
+	return max_tau, updated, max_gain, max_gap
+
+
+def best_ig_sklearn(L, max_gain):
+	X = np.reshape([x[0] for x in L], (-1, 1))
+	y = [x[1] for x in L]
+	ig = mutual_info_classif(X, y)
+	updated = ig > max_gain
+	return ig
+
+
+def test_information_gains():
+	X = np.random.rand(250)
+	y = np.random.randint(5, size=250)
+	L = list(zip(X, y))
+	print(best_ig(L, 0, 0))
+	print(best_ig_sklearn(L, 0))
+
+
+#test_information_gains()
 
 def z_norm(x):
     """Normalize time series such that it has zero mean and unit variance"""
     # IMPORTANT: faster than scipy.stats.zscore for smaller arrays
     mu_x = np.mean(x)
     sigma_x = np.std(x)
+    if sigma_x == 0: sigma_x = 1
     return (x - mu_x) / sigma_x
 
 
@@ -14,6 +66,17 @@ def norm_euclidean_distance(x, y):
     """Calculate the length-normalized euclidean distance."""
     return 1/np.sqrt(len(x)) * np.linalg.norm(x - y)
 
+
+def sdist(x, y):
+	if len(y) < len(x): return sdist(y, x)
+	min_dist = np.inf
+	norm_x = z_norm(x)
+	for j in range(len(y) - len(x) + 1):
+		norm_y = z_norm(y[j:j+len(x)])
+		dist = norm_euclidean_distance(norm_x, norm_y)
+		if dist < min_dist:
+			min_dist = dist
+	return min_dist
 
 def pearson(x, y):
     """Calculate the correlation between two time series"""
@@ -122,5 +185,3 @@ def test_distance_metrics():
         pearson_dist(x[125:], y[125:]), 
         pearson_dist_metrics(125, 125, 125, S_x, S_x2, S_y, S_y2, M)
     )
-
-test_distance_metrics()

@@ -14,16 +14,17 @@ dicts:
 
 def load_data():
 	data = []
-	for file in os.listdir('.'):
+	this_directory = os.path.dirname(os.path.realpath(__file__))
+	for file in os.listdir(this_directory):
 		try:
 			if file.endswith('csv'):
-				df = pd.read_csv(file)	
+				df = pd.read_csv(this_directory+os.sep+file)	
 				if 'target' in df.columns:
 					data.append({
 						'name': file.split('.')[0],
 						'n_samples': len(df),
 						'n_features': len(df.columns) - 1,
-						'n_classes': len(df['target']),
+						'n_classes': len(set(df['target'])),
 						'data': df
 					})
 		except:

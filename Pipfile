@@ -10,6 +10,9 @@ name = "pypi"
 numpy = "*"
 scipy = "*"
 pandas = "*"
+tqdm = "*"
+sklearn = "*"
+matplotlib = "*"
 
 
 [dev-packages]
