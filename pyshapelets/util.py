@@ -6,7 +6,7 @@ from sklearn.feature_selection import mutual_info_classif
 
 
 def best_ig(L, max_gain, max_gap):
-	# TODO: can we do this more efficiently and more clean?
+	# TODO: more efficiently and more clean? (mutual_info_classif???)
 	classes = set([x[1] for x in L])
 	max_tau = (L[0][0] + L[1][0]) / 2
 	updated = False
@@ -35,24 +35,6 @@ def best_ig(L, max_gain, max_gap):
 	return max_tau, updated, max_gain, max_gap
 
 
-def best_ig_sklearn(L, max_gain):
-	X = np.reshape([x[0] for x in L], (-1, 1))
-	y = [x[1] for x in L]
-	ig = mutual_info_classif(X, y)
-	updated = ig > max_gain
-	return ig
-
-
-def test_information_gains():
-	X = np.random.rand(250)
-	y = np.random.randint(5, size=250)
-	L = list(zip(X, y))
-	print(best_ig(L, 0, 0))
-	print(best_ig_sklearn(L, 0))
-
-
-#test_information_gains()
-
 def z_norm(x):
     """Normalize time series such that it has zero mean and unit variance"""
     # IMPORTANT: faster than scipy.stats.zscore for smaller arrays
@@ -74,9 +56,9 @@ def sdist(x, y):
 	for j in range(len(y) - len(x) + 1):
 		norm_y = z_norm(y[j:j+len(x)])
 		dist = norm_euclidean_distance(norm_x, norm_y)
-		if dist < min_dist:
-			min_dist = dist
+		min_dist = min(dist, min_dist)
 	return min_dist
+
 
 def pearson(x, y):
     """Calculate the correlation between two time series"""
@@ -86,6 +68,8 @@ def pearson(x, y):
     mu_y = np.mean(y)
     sigma_y = np.std(y)
     m = len(x)
+    if sigma_x == 0: sigma_x = 1
+    if sigma_y == 0: sigma_y = 1
     return (np.sum(x * y) - (m * mu_x * mu_y)) / (m * sigma_x * sigma_y)
 
 
@@ -97,7 +81,9 @@ def pearson_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M):
     sigma_x = np.sqrt((S_x2[u + l] - S_x2[u]) / l - mu_x ** 2)
     sigma_y = np.sqrt((S_y2[v + l] - S_y2[v]) / l - mu_y ** 2)
     xy = M[u + l, v + l] - M[u, v]
-    return (xy - (l * mu_x * mu_y)) / (l * sigma_x * sigma_y)
+    if sigma_x == 0: sigma_x = 1
+    if sigma_y == 0: sigma_y = 1
+    return min(1, (xy - (l * mu_x * mu_y)) / (l * sigma_x * sigma_y))
 
 
 def calculate_metric_arrays(x, y):
@@ -140,6 +126,14 @@ def pearson_dist(x, y):
 
 def pearson_dist_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M):
     return np.sqrt(2 * (1 - pearson_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M)))
+
+
+def sdist_metrics(u, l, S_x, S_x2, S_y, S_y2, M):
+	min_dist = np.inf
+	for v in range(len(S_y) - l):
+		dist = pearson_dist_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M)
+		min_dist = min(dist, min_dist)
+	return min_dist
 
 
 def test_distance_metrics():
@@ -185,3 +179,5 @@ def test_distance_metrics():
         pearson_dist(x[125:], y[125:]), 
         pearson_dist_metrics(125, 125, 125, S_x, S_x2, S_y, S_y2, M)
     )
+
+test_distance_metrics()
