@@ -1,38 +1,152 @@
 import numpy as np
+import pandas as pd
 from scipy.stats import zscore, pearsonr, entropy
 import time
 from collections import Counter
 from sklearn.feature_selection import mutual_info_classif
+import math
+
+"""
+def entropy(labels, base=None):
+
+  n_labels = len(labels)
+
+  if n_labels <= 1:
+    return 0
+
+  value,counts = np.unique(labels, return_counts=True)
+  probs = counts / n_labels
+  n_classes = np.count_nonzero(probs)
+
+  if n_classes <= 1:
+    return 0
+
+  ent = 0.
+
+  # Compute entropy
+  base = math.e if base is None else base
+  for i in probs:
+    ent -= i * math.log(i, base)
+
+  return ent
+"""
+
+def upper_ig(L, R):
+    # IMPORTANT: for the multi-class case this is not an exact bound
+    # but this would require an extra loop of 2**C iterations, C being the 
+    # number of classes
+    max_ig = 0
+    all_labels = [x[1] for x in L]
+    classes = set(all_labels)
+    
+    all_counts = {}
+    for c in classes: all_counts[c] = 0
+    for label in all_labels: all_counts[label] += 1
+    prior_entropy = entropy(list(all_counts.values()))
+    
+    for k in range(len(L) - 1):
+        if L[k][0] == L[k+1][0]: continue
+        tau = (L[k][0] + L[k + 1][0]) / 2
+
+        left_labels = all_labels[:k+1]
+        right_labels = all_labels[k+1:]
+
+        left_counts, right_counts = {}, {}
+        for c in classes:
+            left_counts[c] = 0
+            right_counts[c] = 0
+
+        for label in left_labels:
+            left_counts[label] += 1
+        for label in right_labels:
+            right_counts[label] += 1
+
+        major_ends = {}
+        for c in classes:
+            left_fraction = left_counts[c] / len(left_labels)
+            right_fraction = right_counts[c] / len(right_labels)
+            if left_fraction > right_fraction:
+                major_ends[c] = -1
+            elif right_fraction > left_fraction:
+                major_ends[c] = 1
+            else:
+                major_ends[c] = 0
+
+        for i in range(k, -1, -1):
+            if L[i][0] < tau - R:
+                break
+
+            if major_ends[L[i][1]] == 1:
+                left_counts[L[i][1]] -= 1
+                right_counts[L[i][1]] += 1
+
+        for i in range(k + 1, len(all_labels)):
+            if L[i][0] > tau + R:
+                break
+
+            if major_ends[L[i][1]] == -1:
+                left_counts[L[i][1]] += 1
+                right_counts[L[i][1]] -= 1
+
+        ig = information_gain(
+            prior_entropy, 
+            list(left_counts.values()), 
+            list(right_counts.values())
+        )
+        max_ig = max(ig, max_ig)    
+
+    return max_ig    
+
+
+def information_gain(prior_entropy, left_counts, right_counts):
+    N_left = sum(left_counts)
+    N_right = sum(right_counts)
+    N = N_left + N_right
+    left_entropy = N_left/N * entropy(left_counts)
+    right_entropy = N_right/N * entropy(right_counts)
+    return prior_entropy - left_entropy - right_entropy
 
 
 def best_ig(L, max_gain, max_gap):
-	# TODO: more efficiently and more clean? (mutual_info_classif???)
-	classes = set([x[1] for x in L])
-	max_tau = (L[0][0] + L[1][0]) / 2
-	updated = False
-	for k in range(len(L) - 1):
-		tau = (L[k][0] + L[k + 1][0]) / 2
-		left_labels = [x[1] for x in L[:k+1]]
-		right_labels = [x[1] for x in L[k+1:]]
-		all_labels = left_labels + right_labels
-		left_counts = []
-		right_counts = []
-		all_counts = []
-		for c in classes:
-			left_counts.append(left_labels.count(c))
-			right_counts.append(right_labels.count(c))
-			all_counts.append(all_labels.count(c))
-		left_entropy = len(left_labels)/len(L) * entropy(left_counts)
-		right_entropy = len(right_labels)/len(L) * entropy(right_counts)
-		ig = entropy(all_counts) - left_entropy - right_entropy
-		g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
-		if ig > max_gain or (ig == max_gain and g > max_gap):
-			max_tau = tau
-			max_gain = ig
-			max_gap = g
-			updated = True
+    # TODO: more efficiently and more clean? (mutual_info_classif???)
+    # TODO: take a look at numpy hist2d!!!
+    
+    all_labels = [x[1] for x in L]
+    classes = set(all_labels)
 
-	return max_tau, updated, max_gain, max_gap
+    left_counts, right_counts, all_counts = {}, {}, {}
+    for c in classes: all_counts[c] = 0
+
+    for label in all_labels: all_counts[label] += 1
+    prior_entropy = entropy(list(all_counts.values()))
+
+    max_tau = (L[0][0] + L[1][0]) / 2
+    updated = False
+    for k in range(len(L) - 1):
+        for c in classes: 
+            left_counts[c] = 0
+            right_counts[c] = 0
+
+        if L[k][0] == L[k+1][0]: continue
+        tau = (L[k][0] + L[k + 1][0]) / 2
+        
+        left_labels = all_labels[:k+1]
+        right_labels = all_labels[k+1:]
+
+        for label in left_labels: left_counts[label] += 1
+        for label in right_labels: right_counts[label] += 1
+
+        ig = information_gain(
+            prior_entropy, 
+            list(left_counts.values()), 
+            list(right_counts.values())
+        )
+        g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
+        
+        if ig > max_gain or (ig == max_gain and g > max_gap):
+            max_tau, max_gain, max_gap, updated = tau, ig, g, True
+
+    return max_tau, updated, max_gain, max_gap
 
 
 def z_norm(x):
@@ -50,14 +164,28 @@ def norm_euclidean_distance(x, y):
 
 
 def sdist(x, y):
-	if len(y) < len(x): return sdist(y, x)
-	min_dist = np.inf
-	norm_x = z_norm(x)
-	for j in range(len(y) - len(x) + 1):
-		norm_y = z_norm(y[j:j+len(x)])
-		dist = norm_euclidean_distance(norm_x, norm_y)
-		min_dist = min(dist, min_dist)
-	return min_dist
+    if len(y) < len(x): return sdist(y, x)
+    min_dist = np.inf
+    norm_x = z_norm(x)
+    for j in range(len(y) - len(x) + 1):
+        norm_y = z_norm(y[j:j+len(x)])
+        dist = norm_euclidean_distance(norm_x, norm_y)
+        min_dist = min(dist, min_dist)
+    return min_dist
+
+
+def sdist_with_pos(x, y):
+    if len(y) < len(x): return sdist(y, x)
+    min_dist = np.inf
+    norm_x = z_norm(x)
+    best_pos = 0
+    for j in range(len(y) - len(x) + 1):
+        norm_y = z_norm(y[j:j+len(x)])
+        dist = norm_euclidean_distance(norm_x, norm_y)
+        if dist < min_dist:
+        	min_dist = dist
+        	best_pos = j
+    return min_dist, best_pos
 
 
 def pearson(x, y):
@@ -81,18 +209,18 @@ def pearson_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M):
     sigma_x = np.sqrt((S_x2[u + l] - S_x2[u]) / l - mu_x ** 2)
     sigma_y = np.sqrt((S_y2[v + l] - S_y2[v]) / l - mu_y ** 2)
     xy = M[u + l, v + l] - M[u, v]
-    if sigma_x == 0: sigma_x = 1
-    if sigma_y == 0: sigma_y = 1
+    if sigma_x == 0 or pd.isnull(sigma_x): sigma_x = 1
+    if sigma_y == 0 or pd.isnull(sigma_y): sigma_y = 1
     return min(1, (xy - (l * mu_x * mu_y)) / (l * sigma_x * sigma_y))
 
 
 def calculate_metric_arrays(x, y):
     """Calculate five statistic arrays:
-    	* S_x:  contains the cumulative sum of elements of x
-		* S_x2: contains the cumulative sum of squared elements of x
-    	* S_y:  contains the cumulative sum of elements of y
-		* S_y2: contains the cumulative sum of squared elements of y
-		* M:    stores the sum of products of subsequences of x and y
+        * S_x:  contains the cumulative sum of elements of x
+        * S_x2: contains the cumulative sum of squared elements of x
+        * S_y:  contains the cumulative sum of elements of y
+        * S_y2: contains the cumulative sum of squared elements of y
+        * M:    stores the sum of products of subsequences of x and y
     """
     S_x = np.append([0], np.cumsum(x))
     S_x2 = np.append([0], np.cumsum(np.power(x, 2)))
@@ -129,11 +257,11 @@ def pearson_dist_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M):
 
 
 def sdist_metrics(u, l, S_x, S_x2, S_y, S_y2, M):
-	min_dist = np.inf
-	for v in range(len(S_y) - l):
-		dist = pearson_dist_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M)
-		min_dist = min(dist, min_dist)
-	return min_dist
+    min_dist = np.inf
+    for v in range(len(S_y) - l):
+        dist = pearson_dist_metrics(u, v, l, S_x, S_x2, S_y, S_y2, M)
+        min_dist = min(dist, min_dist)
+    return min_dist
 
 
 def test_distance_metrics():
