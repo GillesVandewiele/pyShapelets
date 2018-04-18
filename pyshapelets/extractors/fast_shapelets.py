@@ -4,6 +4,7 @@ import os, sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import util
 from queue import Queue
+from tqdm import trange
 
 #TODO: Convert this to a class with fit- and predict- methods!
 
@@ -20,7 +21,7 @@ class LRUCache():
 
 
 def extract_shapelet(timeseries, labels, min_len=None, max_len=None,
-					 enable_pruning=True):
+					 enable_pruning=False):
 	# If no min_len and max_len are provided, we fill then in ourselves
 	if min_len is None:
 		min_len = 2
@@ -35,7 +36,7 @@ def extract_shapelet(timeseries, labels, min_len=None, max_len=None,
 
 	max_gain, max_gap = 0, 0
 	best_shapelet, best_dist, best_L = None, None, None
-	for j in range(len(timeseries)):
+	for j in trange(len(timeseries), desc='timeseries', position=0):
 		print('Extracting candidates from {}th timeseries'.format(j))
 		S = timeseries[j, :]
 		stats = {}
@@ -45,7 +46,7 @@ def extract_shapelet(timeseries, labels, min_len=None, max_len=None,
 			metrics = util.calculate_metric_arrays(S, timeseries[k, :])
 			stats[(j, k)] = metrics
 
-		for l in range(min_len, max_len):
+		for l in trange(min_len, max_len, desc='length', position=1):
 			# Keep a history to calculate an upper bound, this could
 			# result in pruning,LRUCache thus avoiding the construction of the
 			# orderline L (which is an expensive operation)
@@ -76,7 +77,6 @@ def extract_shapelet(timeseries, labels, min_len=None, max_len=None,
 				tau, updated, new_gain, new_gap = util.best_ig(L, max_gain, max_gap)
 				if updated:
 					best_shapelet = S[i:i+l]
-					print('Found new best shapelet of length {} with gain {} and gap {}'.format(len(best_shapelet), new_gain, new_gap))
 					best_dist = tau
 					best_L = L
 					max_gain = new_gain
