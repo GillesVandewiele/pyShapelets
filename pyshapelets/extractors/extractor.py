@@ -14,11 +14,8 @@ from sax_transform import transform
 import util
 
 class Extractor(object):
-    def __init__(self, min_len=None, max_len=None, nr_shapelets=1):
-        # These hyper-parameters are shared over all extractors
-        self.nr_shapelets = nr_shapelets
-        self.min_len = min_len
-        self.max_len = max_len
+    def __init__(self):
+        pass
 
     def _convert_to_numpy(self, timeseries, labels):
         try:
@@ -41,24 +38,136 @@ class Extractor(object):
             print('exception occurred')
             pass
 
-    def extract(self, timeseries, labels):
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1):
         self.timeseries, self.labels = self._convert_to_numpy(timeseries, 
                                                               labels)
 
         # If no min_len and max_len are provided, we initialise them
-        if self.min_len is None:
-            self.min_len = 1
-        if self.max_len is None:
-            self.max_len = self.timeseries.shape[1]
+        if min_len is None:
+            min_len = 1
+        if max_len is None:
+            max_len = self.timeseries.shape[1]
+
+        self.nr_shapelets = nr_shapelets
+        self.min_len = min_len
+        self.max_len = max_len
+
+
+class BruteForceExtractor(Extractor):
+    def __init__(self):
+        pass
+
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1):
+        super(BruteForceExtractor, self).extract(timeseries, labels, min_len,
+                                                 max_len, nr_shapelets)
+        shapelets = []
+        for j in trange(len(self.timeseries), desc='timeseries', position=0):
+            # We will extract shapelet candidates from S
+            S = self.timeseries[j, :]
+            for l in range(self.min_len, self.max_len):  
+                for i in range(len(S) - l + 1):
+                    candidate = S[i:i+l]
+                    # Compute distances to all other timeseries
+                    L = []  # The orderline, to calculate entropy
+                    for k in range(len(self.timeseries)):
+                        D = self.timeseries[k, :]
+                        dist = util.sdist(candidate, D)
+                        L.append((dist, self.labels[k]))
+                    L = sorted(L, key=lambda x: x[0])
+                    tau, gain, gap = util.calculate_ig(L)
+                    shapelets.append((candidate, tau, gain, gap))
+
+        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
+        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        return best_shapelets
+
+
+class LRUCache():
+    def __init__(self, size=5):
+        self.values = []
+        self.size = size
+
+    def put(self, value):
+        while len(self.values) >= self.size:
+            self.values.remove(self.values[0])
+
+        self.values.append(value)
+
+
+class FastExtractor(Extractor):
+    def __init__(self, pruning=False, cache_size=10):
+        self.pruning = pruning
+        self.cache_size = cache_size
+
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1):
+        super(FastExtractor, self).extract(timeseries, labels, min_len,
+                                           max_len, nr_shapelets)
+        shapelets = []
+        for j in trange(len(self.timeseries), desc='timeseries', position=0):
+            S = self.timeseries[j, :]
+            stats = {}
+            # Pre-compute all metric arrays, which will allow us to
+            # calculate the distance between two timeseries in constant time
+            for k in range(len(self.timeseries)):
+                metrics = util.calculate_metric_arrays(S, self.timeseries[k, :])
+                stats[(j, k)] = metrics
+
+            for l in range(self.min_len, self.max_len):  
+                # Keep a history to calculate an upper bound, this could
+                # result in pruning,LRUCache thus avoiding the construction of the
+                # orderline L (which is an expensive operation)
+                H = LRUCache(size=self.cache_size)
+                for i in range(len(S) - l + 1):
+                    if self.pruning:
+                        # Check if we can prune
+                        prune = False
+                        for w in range(len(H.values)):
+                            L_prime, S_prime = H.values[w]
+                            R = util.sdist(S[i:i+l], S_prime)
+                            if util.upper_ig(L_prime.copy(), R) < max_gain:
+                                prune = True
+                                break
+                        if prune: continue
+
+                    # Extract a shapelet from S, starting at index i with length l
+                    L = []  # An orderline with the distances to shapelet & labels
+                    for k in range(len(self.timeseries)):
+                        S_x, S_x2, S_y, S_y2, M = stats[(j, k)]
+                        L.append((
+                            util.sdist_metrics(i, l, S_x, S_x2, S_y, S_y2, M),
+                            self.labels[k]
+                        ))
+                    L = sorted(L, key=lambda x: x[0])
+                    tau, gain, gap = util.calculate_ig(L)
+                    shapelets.append((S[i:i+l], tau, gain, gap))
+
+                    if self.pruning:
+                        H.put((L, S[i:i+l]))
+
+        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
+        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        return best_shapelets
+        
+
+class LearningExtractor(Extractor):
+    pass
+
+
+class GeneticExtractor(Extractor):
+    pass
+
+
+class ParticleSwarmExtractor(Extractor):
+    pass
 
 
 class SAXExtractor(Extractor):
-    def __init__(self, min_len=None, max_len=None, nr_shapelets=1, 
-                 alphabet_size=4, sax_length=8, nr_candidates=25, 
+    def __init__(self, alphabet_size=4, sax_length=8, nr_candidates=25, 
                  iterations=5, mask_size=3):
-        super(SAXExtractor, self).__init__(min_len=min_len,
-                                           max_len=max_len, 
-                                           nr_shapelets=nr_shapelets)
+        super(SAXExtractor, self).__init__()
         self.alphabet_size = alphabet_size
         self.sax_length = sax_length
         self.nr_candidates = nr_candidates
@@ -66,16 +175,16 @@ class SAXExtractor(Extractor):
         self.mask_size = mask_size
 
     def _random_mask(self, sax_timeseries, mask_size=5):
-        """When discretizing a continous real-valued timeseries, the problem of
-        false dismissals arises. This is caused by the fact that two timeseries that
-        differ only by a tiny epsilon can result in two different words. To 
-        alleviate this problem, we take random subsets of each word by masking
-        them. Now a trade-off between false dismissals and false positives must
-        be considered. The higher the mask_size, the higher the probability of
-        false positives.
+        """In order to calculate similarity between different timeseries
+        in the SAX domain, we apply random masks and check whether the 
+        remainder of the timeseries are equal to eachother.
+
         Parameters:
         -----------
-         * sax_timeseries (3D np.array: timeseries x sax_words x word_length)
+        * sax_timeseries (3D np.array: timeseries x sax_words x word_length)
+             The timeseries to mask
+        * mask_size (int)
+             How many elements should be masked
         """
         random_idx = np.random.choice(
             range(sax_timeseries.shape[2]),
@@ -115,8 +224,10 @@ class SAXExtractor(Extractor):
 
         return score_table
 
-    def extract(self, timeseries, labels):
-        super(SAXExtractor, self).extract(timeseries, labels)
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1):
+        super(SAXExtractor, self).extract(timeseries, labels, min_len,
+                                          max_len, nr_shapelets)
 
         if self.min_len == 1:
             self.min_len = self.sax_length
@@ -124,8 +235,7 @@ class SAXExtractor(Extractor):
         unique_classes = set(self.labels)
         classes_cntr = Counter(self.labels)
 
-        max_gain, max_gap = 0, 0
-        best_shapelet, best_dist, best_L = None, None, None
+        shapelets = []
         for l in trange(self.min_len, self.max_len, desc='length', position=0):
             # To select the candidates, all subsequences of length l from   
             # all time series are created using the sliding window technique, 
@@ -147,13 +257,15 @@ class SAXExtractor(Extractor):
                 sax_words[ts_idx] = transformed_timeseries
             
             score_table = self._create_score_table(sax_words, self.labels, 
-	                                               iterations=self.iterations,
-	                                               mask_size=self.mask_size)
+                                                   iterations=self.iterations,
+                                                   mask_size=self.mask_size)
             max_score_table = np.ones_like(score_table)
             for c in unique_classes:
                 max_score_table[:, :, c] = classes_cntr[c] * self.iterations
             rev_score_table = max_score_table - score_table
 
+            # TODO: Can we replace this simple power calculation by a more
+            # powerful metric to heuristically measure the quality
             power = []
             for ts_idx in range(score_table.shape[0]):
                 for sax_idx in range(score_table.shape[1]):
@@ -181,18 +293,9 @@ class SAXExtractor(Extractor):
                     dist = util.sdist(candidate, D)
                     L.append((dist, self.labels[k]))
                 L = sorted(L, key=lambda x: x[0])
-                tau, updated, new_gain, new_gap = util.best_ig(L, max_gain, 
-                                                               max_gap)
-                if updated:
-                    best_shapelet = candidate
-                    print('Found new best shapelet of length {} with gain {} and gap {}'.format(len(best_shapelet), new_gain, new_gap))
-                    best_dist = tau
-                    best_L = L
-                    max_gain = new_gain
-                    max_gap = new_gap
+                tau, gain, gap = util.calculate_ig(L)
+                shapelets.append((candidate, tau, gain, gap))
 
-        return best_shapelet, best_dist, best_L, max_gain, max_gap
-
-
-extractor = SAXExtractor()
-extractor.extract([[0,0,0,0], [1,1,1,1]], [0, 1])
+        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
+        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        return best_shapelets

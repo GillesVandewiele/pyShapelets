@@ -86,8 +86,6 @@ def transform(timeseries, nr_windows, alphabet_size):
 					  for ts in timeseries]
 	return np.array(transformed_ts)
 
-# TODO: Write some
-
 def test_sax_distance():
 	np.random.seed(1337)
 	TS_LENGTH = 100
