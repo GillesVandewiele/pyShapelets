@@ -1,35 +1,29 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import zscore, pearsonr, entropy
+from scipy.stats import (zscore, pearsonr, entropy,
+                         kruskal, f_oneway, median_test)
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 from sklearn.feature_selection import mutual_info_classif
 import math
 
-"""
-def entropy(labels, base=None):
+def kruskal_score(L):
+    return kruskal(*list(get_distances_per_class(L).values()))[0]
 
-  n_labels = len(labels)
 
-  if n_labels <= 1:
-    return 0
+def f_score(L):
+    return f_oneway(*list(get_distances_per_class(L).values()))[0]
 
-  value,counts = np.unique(labels, return_counts=True)
-  probs = counts / n_labels
-  n_classes = np.count_nonzero(probs)
 
-  if n_classes <= 1:
-    return 0
+def mood_median(L):
+    return median_test(*list(get_distances_per_class(L).values()))[0]
 
-  ent = 0.
 
-  # Compute entropy
-  base = math.e if base is None else base
-  for i in probs:
-    ent -= i * math.log(i, base)
-
-  return ent
-"""
+def get_distances_per_class(L):
+    distances_per_class = defaultdict(list)
+    for dist, label in L:
+        distances_per_class[label].append(dist)
+    return distances_per_class
 
 def upper_ig(L, R):
     # IMPORTANT: for the multi-class case this is not an exact bound
@@ -348,4 +342,47 @@ def test_distance_metrics():
         pearson_dist_metrics(125, 125, 125, S_x, S_x2, S_y, S_y2, M)
     )
 
+
+def test_quality_metrics():
+    # First, we create an order line which is able to achieve
+    # perfect separation. Then, we create an order line in which
+    # it is impossible to achieve good separation. We also create an
+    # order line that is between these two extreme cases.
+    good_L  = [
+        (0.0, 0), (0.1, 0), (0.15, 0), (0.3, 0), (0.45, 0),
+        (0.55, 1), (0.7, 1), (0.75, 1), (0.9, 1), (0.95, 1)
+    ]
+    avg_L  = [
+        (0.0, 0), (0.1, 0), (0.15, 0), (0.3, 0), (0.45, 1),
+        (0.55, 0), (0.7, 1), (0.75, 1), (0.9, 1), (0.95, 1)
+    ]
+    bad_L  = [
+        (0.0, 0), (0.1, 1), (0.15, 0), (0.3, 1), (0.45, 0),
+        (0.55, 1), (0.7, 0), (0.75, 1), (0.9, 0), (0.95, 1)
+    ]
+
+    # The quality metric of the good order line should always be
+    # high than that of the average and the metric of the average line
+    # should be higher than the metric of the bad order line.
+    good_ig = calculate_ig(good_L)[1]
+    avg_ig = calculate_ig(avg_L)[1]
+    bad_ig = calculate_ig(bad_L)[1]
+    assert good_ig > avg_ig > bad_ig
+
+    good_kw = kruskal_score(good_L)
+    avg_kw = kruskal_score(avg_L)
+    bad_kw = kruskal_score(bad_L)
+    assert good_kw > avg_kw > bad_kw
+
+    good_f = f_score(good_L)
+    avg_f = f_score(avg_L)
+    bad_f = f_score(bad_L)
+    assert good_f > avg_f > bad_f
+
+    good_mm = mood_median(good_L)
+    avg_mm = mood_median(avg_L)
+    bad_mm = mood_median(bad_L)
+    assert good_mm > avg_mm > bad_mm
+
+test_quality_metrics()
 test_distance_metrics()

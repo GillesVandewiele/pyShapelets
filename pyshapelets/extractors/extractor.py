@@ -13,6 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sax_transform import transform
 import util
 
+from tslearn.shapelets import ShapeletModel
+
 class Extractor(object):
     def __init__(self):
         pass
@@ -153,7 +155,61 @@ class FastExtractor(Extractor):
         
 
 class LearningExtractor(Extractor):
-    pass
+    # TODO: create a dictionary, with keys=[min_len, max_len] and
+    # the values are equal to nr_shapelets
+
+    # After extracting them with tslearn, iterate over them and create a 
+    # top K
+    def __init__(self, batch_size=4, max_iter=50, weight_regularizer=0.0,
+                 optimizer='sgd'):
+        self.batch_size = batch_size
+        self.max_iter = max_iter
+        self.weight_regularizer = weight_regularizer
+        self.optimizer = optimizer
+        from numpy.random import seed
+        seed(1)
+        from tensorflow import set_random_seed
+        set_random_seed(2)
+
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1):
+        super(LearningExtractor, self).extract(timeseries, labels, min_len,
+                                               max_len, nr_shapelets)
+
+        all_extracted_shapelets = []
+        for i in trange(self.min_len, self.max_len, desc='length', position=0):
+            # IMPORTANT! This parameter has an impact on the output
+            shapelet_sizes= {i: self.nr_shapelets}
+
+            clf = ShapeletModel(n_shapelets_per_size=shapelet_sizes, 
+                                max_iter=self.max_iter, verbose_level=0,
+                                optimizer=self.optimizer,
+                                weight_regularizer=self.weight_regularizer)
+            extracted_shapelets = clf.fit(
+                np.reshape(
+                    self.timeseries, 
+                    (self.timeseries.shape[0], self.timeseries.shape[1], 1)
+                ), 
+                self.labels
+            ).shapelets_
+            for shapelet in extracted_shapelets:
+                all_extracted_shapelets.append(shapelet)
+
+
+        shapelets = []
+        for candidate in all_extracted_shapelets:
+            L = []  # The orderline, to calculate entropy
+            for k in range(len(self.timeseries)):
+                D = self.timeseries[k, :]
+                dist = util.sdist(candidate, D)
+                L.append((dist, self.labels[k]))
+            L = sorted(L, key=lambda x: x[0])
+            tau, gain, gap = util.calculate_ig(L)
+            shapelets.append((candidate, tau, gain, gap))
+
+        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
+        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        return best_shapelets
 
 
 class GeneticExtractor(Extractor):

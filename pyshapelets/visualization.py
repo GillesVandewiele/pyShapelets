@@ -34,9 +34,3 @@ def visualize_shapelet(timeseries, labels, shapelet,
 			ax[j][i].set_title('Sample from class {} with distance {}'.format(c, dist))
 
 	plt.show()
-
-
-
-
-
-
