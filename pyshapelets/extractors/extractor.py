@@ -1,10 +1,14 @@
 # Standard library
 from collections import defaultdict, Counter
+import array
+import time
 
 # pip-installable libraries
 import pandas as pd
 import numpy as np
 from tqdm import trange
+from deap import base, creator, algorithms, tools
+from tslearn.shapelets import ShapeletModel
 
 # Some beautiful Python imports
 import os, sys
@@ -13,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sax_transform import transform
 import util
 
-from tslearn.shapelets import ShapeletModel
+
 
 class Extractor(object):
     def __init__(self):
@@ -41,7 +45,7 @@ class Extractor(object):
             pass
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
-                nr_shapelets=1):
+                nr_shapelets=1, metric='ig'):
         self.timeseries, self.labels = self._convert_to_numpy(timeseries, 
                                                               labels)
 
@@ -55,13 +59,27 @@ class Extractor(object):
         self.min_len = min_len
         self.max_len = max_len
 
+        self.metric = {
+            'ig': util.calculate_ig,
+            'kw': util.kruskal_score,
+            'f': util.f_score,
+            'mm': util.mood_median,
+        }[metric]
+        
+        self.key = {
+            'ig': lambda x: (-x[1], -x[2]),
+            'kw': lambda x: -x[1],
+            'f': lambda x: -x[1],
+            'mm': lambda x: -x[1]
+        }[metric]
+
 
 class BruteForceExtractor(Extractor):
     def __init__(self):
         pass
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
-                nr_shapelets=1):
+                nr_shapelets=1, metric='ig'):
         super(BruteForceExtractor, self).extract(timeseries, labels, min_len,
                                                  max_len, nr_shapelets)
         shapelets = []
@@ -77,12 +95,11 @@ class BruteForceExtractor(Extractor):
                         D = self.timeseries[k, :]
                         dist = util.sdist(candidate, D)
                         L.append((dist, self.labels[k]))
-                    L = sorted(L, key=lambda x: x[0])
-                    tau, gain, gap = util.calculate_ig(L)
-                    shapelets.append((candidate, tau, gain, gap))
+                    score = self.metric(L)
+                    shapelets.append(([list(candidate)] + list(score)))
 
-        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
-        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        shapelets = sorted(shapelets, key=self.key)
+        best_shapelets = [x[0] for x in shapelets[:nr_shapelets]]
         return best_shapelets
 
 
@@ -104,7 +121,7 @@ class FastExtractor(Extractor):
         self.cache_size = cache_size
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
-                nr_shapelets=1):
+                nr_shapelets=1, metric='ig'):
         super(FastExtractor, self).extract(timeseries, labels, min_len,
                                            max_len, nr_shapelets)
         shapelets = []
@@ -142,15 +159,14 @@ class FastExtractor(Extractor):
                             util.sdist_metrics(i, l, S_x, S_x2, S_y, S_y2, M),
                             self.labels[k]
                         ))
-                    L = sorted(L, key=lambda x: x[0])
-                    tau, gain, gap = util.calculate_ig(L)
-                    shapelets.append((S[i:i+l], tau, gain, gap))
+                    score = self.metric(L)
+                    shapelets.append(([list(S[i:i+l])] + list(score)))
 
                     if self.pruning:
                         H.put((L, S[i:i+l]))
 
-        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
-        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        shapelets = sorted(shapelets, key=self.key)
+        best_shapelets = [x[0] for x in shapelets[:nr_shapelets]]
         return best_shapelets
         
 
@@ -166,13 +182,13 @@ class LearningExtractor(Extractor):
         self.max_iter = max_iter
         self.weight_regularizer = weight_regularizer
         self.optimizer = optimizer
-        from numpy.random import seed
-        seed(1)
-        from tensorflow import set_random_seed
-        set_random_seed(2)
+        #from numpy.random import seed
+        #seed(1)
+        #from tensorflow import set_random_seed
+        #set_random_seed(2)
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
-                nr_shapelets=1):
+                nr_shapelets=1, metric='ig'):
         super(LearningExtractor, self).extract(timeseries, labels, min_len,
                                                max_len, nr_shapelets)
 
@@ -203,21 +219,236 @@ class LearningExtractor(Extractor):
                 D = self.timeseries[k, :]
                 dist = util.sdist(candidate, D)
                 L.append((dist, self.labels[k]))
-            L = sorted(L, key=lambda x: x[0])
-            tau, gain, gap = util.calculate_ig(L)
-            shapelets.append((candidate, tau, gain, gap))
+            score = self.metric(L)
+            shapelets.append(([list(candidate)]+list(score)))
 
-        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
-        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        shapelets = sorted(shapelets, key=self.key)
+        best_shapelets = [x[0] for x in shapelets[:nr_shapelets]]
         return best_shapelets
 
 
 class GeneticExtractor(Extractor):
-    pass
+    def __init__(self, population_size=100, iterations=25, verbose=True,
+                 mutation_prob=0.25, crossover_prob=0.25, wait=10):
+        self.population_size = population_size
+        self.iterations = iterations
+        self.verbose = verbose
+        self.mutation_prob = mutation_prob
+        self.crossover_prob = crossover_prob
+        self.wait = wait
+
+
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1, metric='ig'):
+        # TODO: If nr_shapelets > 1, then represent individuals by
+        # TODO: `nr_shapelets` shapelets (instead of taking top-k from hof)
+        super(GeneticExtractor, self).extract(timeseries, labels, min_len,
+                                              max_len, nr_shapelets)
+
+        weights = (1.0,)
+        if metric == 'ig':
+            weights = (1.0, 1.0)
+        creator.create("FitnessMax", base.Fitness, weights=weights)
+        creator.create("Individual", list, fitness=creator.FitnessMax, score=None)
+
+        def random_shapelet():
+            rand_row_idx = np.random.randint(self.timeseries.shape[0])
+            rand_length = np.random.choice(range(self.min_len, self.max_len), size=1)[0]
+            rand_col_start_idx = np.random.randint(self.timeseries.shape[1] - rand_length)
+            return self.timeseries[
+                rand_row_idx, 
+                rand_col_start_idx:rand_col_start_idx+rand_length
+            ]
+
+        def cost(shapelet):
+            L = []
+            for k in range(len(self.timeseries)):
+                D = self.timeseries[k, :]
+                dist = util.sdist(shapelet, D)
+                L.append((dist, self.labels[k]))
+            return self.metric(L)
+
+        toolbox = base.Toolbox()
+        toolbox.register("mate", tools.cxOnePoint)
+        toolbox.register("mate", tools.cxTwoPoint)
+        toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.1, indpb=0.1)
+
+        toolbox.register("individual",  tools.initIterate, creator.Individual, random_shapelet)
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+        toolbox.register("evaluate", cost)
+        toolbox.register("select", tools.selRoulette)
+
+        stats = tools.Statistics(key=lambda ind: ind.fitness.values[0])
+        stats.register("avg", np.mean)
+        stats.register("std", np.std)
+        stats.register("max", np.max)
+
+        hof = tools.HallOfFame(nr_shapelets)
+
+        pop = toolbox.population(n=self.population_size)
+        fitnesses = list(map(toolbox.evaluate, pop))
+        for ind, fit in zip(pop, fitnesses):
+            ind.fitness.values = fit
+
+        it, best_it = 1, 1
+        best_score = float('-inf')
+        print('it\t\tavg\t\tstd\t\tmax\t\ttime')
+        while it <= self.iterations and it - best_it < self.wait:
+            start = time.time()
+
+            # Apply selection and cross-over the selected individuals
+            offspring = toolbox.select(pop, len(pop))
+            offspring = list(map(toolbox.clone, offspring))
+            for child1, child2 in zip(offspring[::2], offspring[1::2]):
+                if np.random.random() < self.crossover_prob:
+                    toolbox.mate(child1, child2)
+                    del child1.fitness.values
+                    del child2.fitness.values
+
+            # Apply mutation to each individual
+            for indiv in offspring:
+                if np.random.random() < self.mutation_prob:
+                    toolbox.mutate(indiv)
+                    del indiv.fitness.values
+
+            # Update the fitness values            
+            invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+            fitnesses = map(toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+
+            # Replace population and update hall of fame
+            pop[:] = offspring
+            it_stats = stats.compile(pop)
+            hof.update(pop)
+            print('{}\t\t{}\t\t{}\t\t{}\t{}'.format(
+                it, 
+                np.around(it_stats['avg'], 4), 
+                np.around(it_stats['std'], 3), 
+                np.around(it_stats['max'], 6),
+                np.around(time.time() - start, 4), 
+            ))
+
+            if it_stats['max'] > best_score:
+                best_it = it
+                best_score = it_stats['max']
+            it += 1
+
+        return hof
 
 
 class ParticleSwarmExtractor(Extractor):
-    pass
+    def __init__(self, particles=100, iterations=25, verbose=True, wait=10,
+                 smin=-0.25, smax=0.25, phi1=1, phi2=1):
+        self.particles = particles
+        self.iterations = iterations
+        self.verbose = verbose
+        self.wait = wait
+        self.smin = smin
+        self.smax = smax
+        self.phi1 = phi1
+        self.phi2 = phi2
+
+    def extract(self, timeseries, labels, min_len=None, max_len=None, 
+                nr_shapelets=1, metric='ig'):
+        super(ParticleSwarmExtractor, self).extract(timeseries, labels, min_len,
+                                                    max_len, nr_shapelets)
+
+        def random_shapelet():
+            rand_row_idx = np.random.randint(self.timeseries.shape[0])
+            rand_length = np.random.choice(range(self.min_len, self.max_len), size=1)[0]
+            rand_col_start_idx = np.random.randint(self.timeseries.shape[1] - rand_length)
+            return self.timeseries[
+                rand_row_idx, 
+                rand_col_start_idx:rand_col_start_idx+rand_length
+            ]
+
+        def generate(smin, smax, n):
+            parts = []
+            for _ in range(n):
+                rand_shap = random_shapelet()
+                part = creator.Particle(rand_shap)
+                part.speed = np.random.uniform(smin, smax, len(rand_shap))
+                part.smin = smin
+                part.smax = smax
+                parts.append(part)
+            return parts
+
+        def updateParticle(part, best, phi1, phi2):
+            u1 = np.random.uniform(0, phi1, len(part))
+            u2 = np.random.uniform(0, phi2, len(part))
+            #TODO: recheck this out (what if particles have variable lengths??)
+            if len(part) < len(best):
+                d, pos = util.sdist_with_pos(part, best)
+                v_u1 = u1 * (part.best - part)
+                v_u2 = u2 * (best[pos:pos+len(part)] - part)
+                # These magic numbers are found in http://www.ijmlc.org/vol5/521-C016.pdf
+                part.speed = 0.729*part.speed + np.minimum(np.maximum(1.49445 * (v_u1 + v_u2), part.smin), part.smax)
+                part += part.speed
+            else:
+                d, pos = util.sdist_with_pos(best, part)
+                v_u1 = (u1 * (part.best - part))[pos:pos+len(best)]
+                v_u2 = u2[pos:pos+len(best)] * (best - part[pos:pos+len(best)])
+                # These magic numbers are found in http://www.ijmlc.org/vol5/521-C016.pdf
+                part.speed[pos:pos+len(best)] = 0.729*part.speed[pos:pos+len(best)] + np.minimum(np.maximum(1.49445 * (v_u1 + v_u2), part.smin), part.smax)
+                part[pos:pos+len(best)] += part.speed[pos:pos+len(best)]
+
+
+        def cost(shapelet):
+            L = []
+            for k in range(len(self.timeseries)):
+                D = self.timeseries[k, :]
+                dist = util.sdist(shapelet, D)
+                L.append((dist, self.labels[k]))
+            return self.metric(L)
+
+        weights = (1.0,)
+        if metric == 'ig':
+            weights = (1.0, 1.0)
+        creator.create("FitnessMax", base.Fitness, weights=weights)
+        creator.create("Particle", np.ndarray, fitness=creator.FitnessMax, 
+                       speed=list, smin=None, smax=None, best=None)
+
+        toolbox = base.Toolbox()
+        toolbox.register("population", generate, smin=self.smin, smax=self.smax)
+        toolbox.register("update", updateParticle, phi1=self.phi1, phi2=self.phi2)
+        toolbox.register("evaluate", cost)
+
+        pop = toolbox.population(n=self.particles)
+        stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats.register("avg", np.mean)
+        stats.register("std", np.std)
+        stats.register("max", np.max)
+
+        logbook = tools.Logbook()
+        logbook.header = ["gen", "evals"] + stats.fields
+
+        GEN = 10000
+        best = None
+        it_wo_improvement = 0
+
+        for g in range(GEN):
+            it_wo_improvement += 1
+            for part in pop:
+                part.fitness.values = toolbox.evaluate(part)
+                if part.best is None or part.best.fitness < part.fitness:
+                    part.best = creator.Particle(part)
+                    part.best.fitness.values = part.fitness.values
+                if best is None or best.fitness < part.fitness:
+                    best = creator.Particle(part)
+                    best.fitness.values = part.fitness.values
+                    it_wo_improvement = 0
+            for part in pop:
+                toolbox.update(part, best)
+
+            # Gather all the fitnesses in one list and print the stats
+            logbook.record(gen=g, evals=len(pop), **stats.compile(pop))
+            print(logbook.stream)
+
+            if it_wo_improvement == self.wait:
+                break
+
+        return [best]
 
 
 class SAXExtractor(Extractor):
@@ -259,7 +490,6 @@ class SAXExtractor(Extractor):
             len(unique_labels)
         ))
 
-        #TODO: If stuff ever bugs out, check here first...
         for it in range(iterations):
             masked_timeseries = self._random_mask(sax_timeseries, mask_size)
             hash_table = defaultdict(list)
@@ -281,7 +511,7 @@ class SAXExtractor(Extractor):
         return score_table
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
-                nr_shapelets=1):
+                nr_shapelets=1, metric='ig'):
         super(SAXExtractor, self).extract(timeseries, labels, min_len,
                                           max_len, nr_shapelets)
 
@@ -348,10 +578,9 @@ class SAXExtractor(Extractor):
                     D = self.timeseries[k, :]
                     dist = util.sdist(candidate, D)
                     L.append((dist, self.labels[k]))
-                L = sorted(L, key=lambda x: x[0])
-                tau, gain, gap = util.calculate_ig(L)
-                shapelets.append((candidate, tau, gain, gap))
+                score = self.metric(L)
+                shapelets.append(([list(candidate)]+list(score)))
 
-        shapelets = sorted(shapelets, key=lambda x: (-x[2], -x[3]))
-        best_shapelets = [(x[0], x[1]) for x in shapelets[:nr_shapelets]]
+        shapelets = sorted(shapelets, key=self.key)
+        best_shapelets = [x[0] for x in shapelets[:nr_shapelets]]
         return best_shapelets

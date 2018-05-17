@@ -8,15 +8,15 @@ from sklearn.feature_selection import mutual_info_classif
 import math
 
 def kruskal_score(L):
-    return kruskal(*list(get_distances_per_class(L).values()))[0]
+    return (kruskal(*list(get_distances_per_class(L).values()))[0],)
 
 
 def f_score(L):
-    return f_oneway(*list(get_distances_per_class(L).values()))[0]
+    return (f_oneway(*list(get_distances_per_class(L).values()))[0],)
 
 
 def mood_median(L):
-    return median_test(*list(get_distances_per_class(L).values()))[0]
+    return (median_test(*list(get_distances_per_class(L).values()))[0],)
 
 
 def get_distances_per_class(L):
@@ -24,6 +24,56 @@ def get_distances_per_class(L):
     for dist, label in L:
         distances_per_class[label].append(dist)
     return distances_per_class
+
+
+def information_gain(prior_entropy, left_counts, right_counts):
+    N_left = sum(left_counts)
+    N_right = sum(right_counts)
+    N = N_left + N_right
+    left_entropy = N_left/N * entropy(left_counts)
+    right_entropy = N_right/N * entropy(right_counts)
+    return prior_entropy - left_entropy - right_entropy
+
+
+def calculate_ig(L):
+    L = sorted(L, key=lambda x: x[0])
+    all_labels = [x[1] for x in L]
+    classes = set(all_labels)
+
+    left_counts, right_counts, all_counts = {}, {}, {}
+    for c in classes: all_counts[c] = 0
+
+    for label in all_labels: all_counts[label] += 1
+    prior_entropy = entropy(list(all_counts.values()))
+
+    max_tau = (L[0][0] + L[1][0]) / 2
+    max_gain, max_gap = float('-inf'), float('-inf')
+    updated = False
+    for k in range(len(L) - 1):
+        for c in classes: 
+            left_counts[c] = 0
+            right_counts[c] = 0
+
+        if L[k][0] == L[k+1][0]: continue
+        tau = (L[k][0] + L[k + 1][0]) / 2
+        
+        left_labels = all_labels[:k+1]
+        right_labels = all_labels[k+1:]
+
+        for label in left_labels: left_counts[label] += 1
+        for label in right_labels: right_counts[label] += 1
+
+        ig = information_gain(
+            prior_entropy, 
+            list(left_counts.values()), 
+            list(right_counts.values())
+        )
+        g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
+        
+        if ig > max_gain or (ig == max_gain and g > max_gap):
+            max_tau, max_gain, max_gap = tau, ig, g
+
+    return (max_gain, max_gap)
 
 def upper_ig(L, R):
     # IMPORTANT: for the multi-class case this is not an exact bound
@@ -90,55 +140,6 @@ def upper_ig(L, R):
         max_ig = max(ig, max_ig)    
 
     return max_ig    
-
-
-def information_gain(prior_entropy, left_counts, right_counts):
-    N_left = sum(left_counts)
-    N_right = sum(right_counts)
-    N = N_left + N_right
-    left_entropy = N_left/N * entropy(left_counts)
-    right_entropy = N_right/N * entropy(right_counts)
-    return prior_entropy - left_entropy - right_entropy
-
-
-def calculate_ig(L):
-    all_labels = [x[1] for x in L]
-    classes = set(all_labels)
-
-    left_counts, right_counts, all_counts = {}, {}, {}
-    for c in classes: all_counts[c] = 0
-
-    for label in all_labels: all_counts[label] += 1
-    prior_entropy = entropy(list(all_counts.values()))
-
-    max_tau = (L[0][0] + L[1][0]) / 2
-    max_gain, max_gap = float('-inf'), float('-inf')
-    updated = False
-    for k in range(len(L) - 1):
-        for c in classes: 
-            left_counts[c] = 0
-            right_counts[c] = 0
-
-        if L[k][0] == L[k+1][0]: continue
-        tau = (L[k][0] + L[k + 1][0]) / 2
-        
-        left_labels = all_labels[:k+1]
-        right_labels = all_labels[k+1:]
-
-        for label in left_labels: left_counts[label] += 1
-        for label in right_labels: right_counts[label] += 1
-
-        ig = information_gain(
-            prior_entropy, 
-            list(left_counts.values()), 
-            list(right_counts.values())
-        )
-        g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
-        
-        if ig > max_gain or (ig == max_gain and g > max_gap):
-            max_tau, max_gain, max_gap = tau, ig, g
-
-    return max_tau, max_gain, max_gap
 
 
 def best_ig(L, max_gain, max_gap):
@@ -364,9 +365,9 @@ def test_quality_metrics():
     # The quality metric of the good order line should always be
     # high than that of the average and the metric of the average line
     # should be higher than the metric of the bad order line.
-    good_ig = calculate_ig(good_L)[1]
-    avg_ig = calculate_ig(avg_L)[1]
-    bad_ig = calculate_ig(bad_L)[1]
+    good_ig = calculate_ig(good_L)[0]
+    avg_ig = calculate_ig(avg_L)[0]
+    bad_ig = calculate_ig(bad_L)[0]
     assert good_ig > avg_ig > bad_ig
 
     good_kw = kruskal_score(good_L)
