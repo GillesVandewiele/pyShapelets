@@ -58,7 +58,7 @@ visualize_shapelet(X.values, y, best_shapelets[0])
 """
 
 
-from algorithms import ShapeletTransformer
+from algorithms import ShapeletTransformer, DTWNearestNeighbor
 from sklearn.model_selection import StratifiedKFold
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
@@ -70,6 +70,7 @@ for train_idx, test_idx in skf.split(X, y):
 	X_test = X.iloc[test_idx, :]
 	y_test = y.iloc[test_idx]
 
+	"""
 	shap_transformer = ShapeletTransformer(nr_shapelets=10, method='sax', min_len=20, max_len=40)
 	shap_transformer.fit(X_train, y_train)
 	X_distances_train = shap_transformer.transform(X_train)
@@ -87,8 +88,11 @@ for train_idx, test_idx in skf.split(X, y):
 
 	rf = RandomForestClassifier()
 	rf.fit(X_distances_train, y_train)
+	"""
+	nn = DTWNearestNeighbor(n_neighbors=3)
+	nn.fit(X_train, y_train)
 
-	print(confusion_matrix(y_test, rf.predict(X_distances_test)))
+	print(confusion_matrix(y_test, nn.predict(X_test.values)))
 
 
 
