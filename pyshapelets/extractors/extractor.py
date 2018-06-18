@@ -353,7 +353,7 @@ class MultiGeneticExtractor(Extractor):
 
             lr = LogisticRegression()
             lr.fit(X, self.labels)
-            return (np.mean(cross_val_score(lr, X, self.labels, cv=3, scoring='f1_micro')), sum([len(x) for x in shapelets]))#neg_log_loss, f1_micro
+            return (np.mean(cross_val_score(lr, X, self.labels, cv=3, scoring='accuracy')), sum([len(x) for x in shapelets]))#neg_log_loss, f1_micro
             #return (lr.score(X, self.labels), len(shapelets))
 
             #return (util.class_scatter_matrix(X, self.labels), sum([len(x) for x in shapelets]))
