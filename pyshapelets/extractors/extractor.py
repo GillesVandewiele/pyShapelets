@@ -286,7 +286,7 @@ class MultiGeneticExtractor(Extractor):
         """
 
         """
-        np.random.seed(1337)
+        #np.random.seed(1337)
         self.population_size = population_size
         self.iterations = iterations
         self.verbose = verbose
