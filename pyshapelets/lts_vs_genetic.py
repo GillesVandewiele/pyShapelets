@@ -126,7 +126,7 @@ for dataset in metadata:
     print('Learning shapelets took {}s'.format(learning_time))
     print('Accuracies are equal to: LR={}, RF={}, SVM={}'.format(learning_accuracy_lr, learning_accuracy_rf, learning_accuracy_svm))
 
-    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=100, iterations=500, wait=25, plot=False)
+    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=125, iterations=500, wait=25, plot=False)
     shap_transformer = ShapeletTransformer(method=genetic_extractor, min_len=4, max_len=X_train.shape[1], nr_shapelets=X_train.shape[1]//2, metric='ig')
     start = time.time()
     shap_transformer.fit(X_train, y_train)
