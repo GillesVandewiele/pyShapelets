@@ -2,137 +2,91 @@ from data.load_all_datasets import load_data
 from extractors.brute_force import extract_shapelet as bf_extractor
 from extractors.fast_shapelets import extract_shapelet as fast_extractor
 from extractors.sax_shapelets import extract_shapelet as sax_extractor
-from extractors.extractor import SAXExtractor, BruteForceExtractor, FastExtractor, LearningExtractor, GeneticExtractor, ParticleSwarmExtractor
+from extractors.extractor import SAXExtractor, BruteForceExtractor, FastExtractor, LearningExtractor, GeneticExtractor, ParticleSwarmExtractor, ParticleSwarmExtractor2, MultiGeneticExtractor
+from algorithms import ShapeletTreeClassifier, ShapeletTransformer
 import time
 from visualization import visualize_shapelet
 from collections import Counter
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 import util
+from tslearn.shapelets import ShapeletModel, grabocka_params_to_shapelet_size_dict
+import warnings; warnings.filterwarnings('ignore')
 
 data = sorted(load_data(), key=lambda x: x['n_samples']*x['n_features'])
 
-adiac_data = None
-for record in data:
-	if record['name'] == 'ArrowHead':
-		adiac_data = record['data']
-		break
-data = adiac_data
+#for i in range(len(data)):
+#    if data[i]['name'] == 'Beef':
+#        data = [data[i]]
+#        break
 
-data = data.sample(75, random_state=1337)
-X = data.drop('target', axis=1)
-y = data['target']
-map_dict = {}
-for i, c in enumerate(np.unique(y)):
-	map_dict[c] = i
-y = y.map(map_dict)
-X = X[X.columns[50:150]]
+extractors = [
+    #LearningExtractor(),
+    #ParticleSwarmExtractor2(particles=50, iterations=100, wait=5),
+    #ParticleSwarmExtractor(particles=50, iterations=100, wait=5),
+    #SAXExtractor(alphabet_size=4, sax_length=16, nr_candidates=100, 
+    #             iterations=5, mask_size=3),
+    MultiGeneticExtractor(population_size=5, iterations=100, verbose=True,
+                     mutation_prob=0.25, crossover_prob=0.4, wait=5),
+    #FastExtractor()
 
+]
 
-"""
-start = time.time()
-extractor = SAXExtractor()
-best_shapelets = extractor.extract(X, y, min_len=25, max_len=50, metric='f')
-L = []
-for ts, label in zip(X.values, y):
-	L.append((util.sdist(best_shapelets[0], ts), label))
-L = sorted(L, key=lambda x: x[0])
-print(util.calculate_ig(L))
-print('Took {} seconds'.format(time.time() - start)) 
-visualize_shapelet(X.values, y, best_shapelets[0])
-"""
+for i in range(10):
+    X = data[i]['data'].drop('target', axis=1)
+    y = data[i]['data'].loc[X.index, 'target']
+    map_dict = {}
+    for j, c in enumerate(np.unique(y)):
+        map_dict[c] = j
+    y = y.map(map_dict) 
 
-"""
-start = time.time()
-extractor = ParticleSwarmExtractor(particles=25)
-best_shapelets = extractor.extract(X, y, min_len=25, max_len=50, metric='f', nr_shapelets=1)
-print(best_shapelets)
-print('Took {} seconds'.format(time.time() - start)) 
-visualize_shapelet(X.values, y, best_shapelets[0])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=1337)
 
-start = time.time()
-extractor = GeneticExtractor(population_size=25)
-best_shapelets = extractor.extract(X, y, min_len=25, max_len=50, metric='f', nr_shapelets=1)
-print(best_shapelets)
-print('Took {} seconds'.format(time.time() - start)) 
-visualize_shapelet(X.values, y, best_shapelets[0])
-"""
+    """
+    print('Fitting tree on {} ({})'.format(data[i]['name'], X_train.shape))
+    for extractor in extractors:
+        print('\t Using the {} extractor'.format(extractor))
+        shapelet_tree = ShapeletTreeClassifier(method=extractor, max_len=data[i]['n_features']//2, metric='ig')
+        start = time.time()
+        shapelet_tree.fit(X_train, y_train)
+        print(confusion_matrix(y_test, shapelet_tree.predict(X_test.values)))
+        print('\t Took {} seconds'.format(time.time() - start)) 
+    """
 
+    print('Fitting shapelet transform on {} ({})'.format(data[i]['name'], X_train.shape))
 
-from algorithms import ShapeletTransformer, DTWNearestNeighbor
-from sklearn.model_selection import StratifiedKFold
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix
-
-skf = StratifiedKFold(n_splits=3)
-for train_idx, test_idx in skf.split(X, y):
-	X_train = X.iloc[train_idx, :]
-	y_train = y.iloc[train_idx]
-	X_test = X.iloc[test_idx, :]
-	y_test = y.iloc[test_idx]
-
-	"""
-	shap_transformer = ShapeletTransformer(nr_shapelets=10, method='sax', min_len=20, max_len=40)
-	shap_transformer.fit(X_train, y_train)
-	X_distances_train = shap_transformer.transform(X_train)
-	X_distances_test = shap_transformer.transform(X_test)
-
-	rf = RandomForestClassifier()
-	rf.fit(X_distances_train, y_train)
-
-	print(confusion_matrix(y_test, rf.predict(X_distances_test)))
-
-	shap_transformer = ShapeletTransformer(nr_shapelets=10, method='genetic', min_len=20, max_len=40)
-	shap_transformer.fit(X_train, y_train)
-	X_distances_train = shap_transformer.transform(X_train)
-	X_distances_test = shap_transformer.transform(X_test)
-
-	rf = RandomForestClassifier()
-	rf.fit(X_distances_train, y_train)
-	"""
-	nn = DTWNearestNeighbor(n_neighbors=3)
-	nn.fit(X_train, y_train)
-
-	print(confusion_matrix(y_test, nn.predict(X_test.values)))
+    clf = ShapeletModel(n_shapelets_per_size=grabocka_params_to_shapelet_size_dict(n_ts=X_train.shape[0], ts_sz=X_train.shape[1], n_classes=3, l=0.1, r=2), 
+                        max_iter=100, verbose_level=1,
+                        optimizer='adagrad',
+                        weight_regularizer=0.0)
+    clf.fit(
+        np.reshape(
+            X_train.values, 
+            (X_train.shape[0], X_train.shape[1], 1)
+        ), 
+        y_train
+    )
+    predictions = clf.predict(np.reshape(
+            X_test.values, 
+            (X_test.shape[0], X_test.shape[1], 1)
+    ))
+    print(confusion_matrix(y_test, predictions))
 
 
+    for extractor in extractors:
+        print('\t Using the {} extractor'.format(extractor))
+        shap_transformer = ShapeletTransformer(method=extractor, max_len=data[i]['n_features']//2, nr_shapelets=5, metric='ig')
+        start = time.time()
+        shap_transformer.fit(X_train, y_train)
+        print(shap_transformer.shapelets)
+        X_distances_train = shap_transformer.transform(X_train)
+        X_distances_test = shap_transformer.transform(X_test)
 
-"""
-start = time.time()
-extractor = SAXExtractor(sax_length=8)
-best_shapelets = extractor.extract(X, y, min_len=8, metric='f')
-print(best_shapelets)
-print('Took {} seconds'.format(time.time() - start)) 
-#visualize_shapelet(X.values, y, best_shapelets[0])
+        rf = RandomForestClassifier()
+        rf.fit(X_distances_train, y_train)
 
-start = time.time()
-extractor = SAXExtractor(sax_length=8)
-best_shapelets = extractor.extract(X, y, min_len=8, metric='ig')
-print(best_shapelets)
-print('Took {} seconds'.format(time.time() - start)) 
+        print(confusion_matrix(y_test, rf.predict(X_distances_test)))
+        print('\t Took {} seconds'.format(time.time() - start)) 
 
-start = time.time()
-extractor = SAXExtractor(sax_length=8)
-best_shapelets = extractor.extract(X, y, min_len=8, metric='mm')
-print(best_shapelets)
-print('Took {} seconds'.format(time.time() - start)) 
-"""
-
-"""
-start = time.time()
-extractor = LearningExtractor()
-best_shapelets = extractor.extract(X, y, min_len=8)
-print('Took {} seconds'.format(time.time() - start)) 
-#visualize_shapelet(X.values, y, best_shapelets[0])
-
-start = time.time()
-extractor = FastExtractor()
-best_shapelets = extractor.extract(X, y, min_len=8)
-print('Took {} seconds'.format(time.time() - start)) 
-#visualize_shapelet(X.values, y, best_shapelets[0])
-
-start = time.time()
-extractor = BruteForceExtractor()
-best_shapelets = extractor.extract(X, y, min_len=8)
-print('Took {} seconds'.format(time.time() - start)) 
-#visualize_shapelet(X.values, y, best_shapelets[0])
-"""

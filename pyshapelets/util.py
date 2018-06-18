@@ -7,16 +7,84 @@ from collections import Counter, defaultdict
 from sklearn.feature_selection import mutual_info_classif
 import math
 
+from sklearn.neighbors import KDTree, BallTree
+
+def separability_index_kd(X, y):
+    kdt = KDTree(X, leaf_size=10, metric='euclidean')
+    nearest_neighbors = kdt.query(X, k=2, return_distance=False)[:, 1]
+    matches = 0
+    for i in range(len(X)):
+        matches += (y[i] == y[nearest_neighbors[i]])
+    return matches / len(X)
+
+
+def separability_index_ball(X, y):
+    bt = BallTree(X, leaf_size=50, metric='euclidean')
+    nearest_neighbors = bt.query(X, k=2, return_distance=False)[:, 1]
+    matches = 0
+    for i in range(len(X)):
+        matches += (y[i] == y[nearest_neighbors[i]])
+    return matches / len(X)
+
+def class_scatter_matrix(X, y):
+    # Works faster than Linear Regression and correlates well with predictive performance (e.g. accuracy)
+    # FROM: https://datascience.stackexchange.com/questions/11554/varying-results-when-calculating-scatter-matrices-for-lda
+    # Construct a mean vector per class
+    mean_vecs = {}
+    for label in set(y):
+        mean_vecs[label] = np.mean(X[y==label], axis=0)
+        
+    # Construct the within class matrix (S_w)
+    d = X.shape[1]
+    S_w = np.zeros((d, d))
+    for label, mv in zip(set(y), mean_vecs):
+        class_scatter = np.cov(X[y==label].T)
+        S_w += class_scatter
+        
+    # Construct an overall mean vector
+    mean_overall = np.mean(X, axis=0)
+    
+    # Construct the between class matrix (S_b)
+    S_b = np.zeros((d, d))
+    for i in mean_vecs:
+        mean_vec = mean_vecs[i]
+        n = X[y==i, :].shape[0]
+        mean_vec = mean_vec.reshape(d, 1)
+        mean_overall = mean_overall.reshape(d, 1)
+        S_b += n * (mean_vec - mean_overall).dot((mean_vec - mean_overall).T)
+        
+    return np.trace(S_b) / np.trace(S_w + S_b)
+
+
+def class_scatter_measure(X, y):
+    pass
+
+
+def direct_class_seperability_measure(X, y):
+    pass
+
 def kruskal_score(L):
-    return (kruskal(*list(get_distances_per_class(L).values()))[0],)
+    score = kruskal(*list(get_distances_per_class(L).values()))[0]
+    if not pd.isnull(score):
+        return (score,)
+    else:
+        return (float('-inf'),)
 
 
 def f_score(L):
-    return (f_oneway(*list(get_distances_per_class(L).values()))[0],)
+    score = f_oneway(*list(get_distances_per_class(L).values()))[0]
+    if not pd.isnull(score):
+        return (score,)
+    else:
+        return (float('-inf'),)
 
 
 def mood_median(L):
-    return (median_test(*list(get_distances_per_class(L).values()))[0],)
+    score = median_test(*list(get_distances_per_class(L).values()))[0]
+    if not pd.isnull(score):
+        return (score,)
+    else:
+        return (float('-inf'),)
 
 
 def get_distances_per_class(L):
@@ -74,6 +142,46 @@ def calculate_ig(L):
             max_tau, max_gain, max_gap = tau, ig, g
 
     return (max_gain, max_gap)
+
+def get_threshold(L):
+    L = sorted(L, key=lambda x: x[0])
+    all_labels = [x[1] for x in L]
+    classes = set(all_labels)
+
+    left_counts, right_counts, all_counts = {}, {}, {}
+    for c in classes: all_counts[c] = 0
+
+    for label in all_labels: all_counts[label] += 1
+    prior_entropy = entropy(list(all_counts.values()))
+
+    max_tau = (L[0][0] + L[1][0]) / 2
+    max_gain, max_gap = float('-inf'), float('-inf')
+    updated = False
+    for k in range(len(L) - 1):
+        for c in classes: 
+            left_counts[c] = 0
+            right_counts[c] = 0
+
+        if L[k][0] == L[k+1][0]: continue
+        tau = (L[k][0] + L[k + 1][0]) / 2
+        
+        left_labels = all_labels[:k+1]
+        right_labels = all_labels[k+1:]
+
+        for label in left_labels: left_counts[label] += 1
+        for label in right_labels: right_counts[label] += 1
+
+        ig = information_gain(
+            prior_entropy, 
+            list(left_counts.values()), 
+            list(right_counts.values())
+        )
+        g = np.mean([x[0] for x in L[k+1:]]) - np.mean([x[0] for x in L[:k+1]])
+        
+        if ig > max_gain or (ig == max_gain and g > max_gap):
+            max_tau, max_gain, max_gap = tau, ig, g
+
+    return max_tau
 
 def upper_ig(L, R):
     # IMPORTANT: for the multi-class case this is not an exact bound
@@ -205,6 +313,15 @@ def sdist(x, y):
     for j in range(len(y) - len(x) + 1):
         norm_y = z_norm(y[j:j+len(x)])
         dist = norm_euclidean_distance(norm_x, norm_y)
+        min_dist = min(dist, min_dist)
+    return min_dist
+
+
+def sdist_no_norm(x, y):
+    if len(y) < len(x): return sdist_no_norm(y, x)
+    min_dist = np.inf
+    for j in range(len(y) - len(x) + 1):
+        dist = norm_euclidean_distance(x, y[j:j+len(x)])
         min_dist = min(dist, min_dist)
     return min_dist
 
@@ -384,6 +501,3 @@ def test_quality_metrics():
     avg_mm = mood_median(avg_L)
     bad_mm = mood_median(bad_L)
     assert good_mm > avg_mm > bad_mm
-
-test_quality_metrics()
-test_distance_metrics()
