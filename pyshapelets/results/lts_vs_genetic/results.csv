@@ -1,0 +1,2 @@
+,Dataset Name,Genetic Time,Genetic Accuracy (LR),Genetic Accuracy (RF),Genetic Accuracy (SVM),Learning Time,Learning Accuracy (LR),Learning Accuracy (RF),Learning Accuracy (SVM)
+0,ItalyPowerDemand,215.27471208572388,0.9426627793974732,0.9067055393586005,0.9416909620991254,84.37283253669739,0.9572400388726919,0.9591836734693877,0.9630709426627794
