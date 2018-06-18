@@ -84,9 +84,9 @@ def mstamp(seq, sub_len, return_dimension=False):
     for i in range(sub_num):
         cur_prog = (i + 1) / sub_num
         time_left = ((time.time() - tic) / (i + 1)) * (sub_num - i - 1)
-        print('\rProgress [{0:<50s}] {1:5.1f}% {2:8.1f} sec'
-              .format('#' * int(cur_prog * 50),
-                      cur_prog * 100, time_left), end="")
+        #print('\rProgress [{0:<50s}] {1:5.1f}% {2:8.1f} sec'
+        #      .format('#' * int(cur_prog * 50),
+        #              cur_prog * 100, time_left), end="")
         for j in range(n_dim):
             que = seq[j, i:i + sub_len]
             if i == 0:

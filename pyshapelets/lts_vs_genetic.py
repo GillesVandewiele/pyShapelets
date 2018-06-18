@@ -63,6 +63,8 @@ result_vectors = []
 for dataset in metadata:
     if dataset['train']['name'] not in hyper_parameters_lts: continue
 
+    print(dataset['train']['name'])
+
     # Load the training and testing dataset (features + label vector)
     train_df = pd.read_csv(dataset['train']['data_path'])
     test_df = pd.read_csv(dataset['test']['data_path'])
