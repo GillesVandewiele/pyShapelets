@@ -446,7 +446,7 @@ class MultiGeneticExtractor(Extractor):
         toolbox = base.Toolbox()
 
         # TODO: comment this out and check if it doesnt run faster bcs of MP overhead
-        pool = Pool(8)
+        pool = Pool(4)
         toolbox.register("map", pool.map)
 
         toolbox.register("mate", crossover2)
@@ -534,7 +534,7 @@ class MultiGeneticExtractor(Extractor):
             start = time.time()
             #offspring = toolbox.select(pop, self.population_size)
             offspring = list(map(toolbox.clone, pop))
-            print('Selection took {}s'.format(time.time() - start))
+            #print('Selection took {}s'.format(time.time() - start))
 
             # Plot the fittest individual of our population
             if self.plot:
@@ -568,7 +568,7 @@ class MultiGeneticExtractor(Extractor):
                         del child2.fitness.values
                 except:
                     pass
-            print('Crossovers took {}s'.format(time.time() - start))
+            #print('Crossovers took {}s'.format(time.time() - start))
 
             # Apply mutation to each individualnoise_prob:
             start = time.time()
@@ -582,7 +582,7 @@ class MultiGeneticExtractor(Extractor):
                 if np.random.random() < self.remove_shapelet_prob:
                     toolbox.remove(indiv)
                     del indiv.fitness.values
-            print('Mutations took {}s'.format(time.time() - start))
+            #print('Mutations took {}s'.format(time.time() - start))
 
             # Update the fitness values            
             start = time.time()
@@ -590,13 +590,13 @@ class MultiGeneticExtractor(Extractor):
             fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
             for ind, fit in zip(invalid_ind, fitnesses):
                 ind.fitness.values = fit
-            print('Calculating fitnesses took {}s'.format(time.time() - start))
+            #print('Calculating fitnesses took {}s'.format(time.time() - start))
 
             # Replace population and update hall of fame & statistics
             start = time.time()
             pop[:] = toolbox.select(offspring, self.population_size - 1) + tools.selBest(pop + offspring, 1)
             it_stats = stats.compile(pop)
-            print('Stats took {}s'.format(time.time() - start))
+            #print('Stats took {}s'.format(time.time() - start))
 
             # Print our statistics
             if self.verbose:
@@ -609,11 +609,11 @@ class MultiGeneticExtractor(Extractor):
                 ))
 
             # The smaller the value is, the better the front is.
-            try:
-                print('Pop diversity:', diversity(pop, sorted(pop, key=lambda x: (x.fitness.values[0], -x.fitness.values[1]))[0].fitness.values, 
-                      sorted(pop, key=lambda x: (x.fitness.values[0], -x.fitness.values[1]))[-1].fitness.values))
-            except:
-                print('Calc diversity did not work')
+            #try:
+            #    print('Pop diversity:', diversity(pop, sorted(pop, key=lambda x: (x.fitness.values[0], -x.fitness.values[1]))[0].fitness.values, 
+            #          sorted(pop, key=lambda x: (x.fitness.values[0], -x.fitness.values[1]))[-1].fitness.values))
+            #except:
+            #    print('Calc diversity did not work')
 
             # Have we found a new best score?
             if it_stats['max'] > best_score:
