@@ -38,7 +38,7 @@ hyper_parameters_lts = {
 	'Beef': 					[0.15, 0.125, 3, 0.01, 10000],
 	'BeetleFly': 				[0.15, 0.125, 1, 0.01, 5000],
 	'BirdChicken': 				[0.3,  0.075, 1, 0.1,  10000],
-	'Chlorine': 				[0.3,  0.2,   3, 0.01, 10000],
+	'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
 	'Coffee': 					[0.05, 0.075, 2, 0.01, 5000],
 	'DiatomSizeReduction': 		[0.3,  0.175, 2, 0.01, 10000],
 	'ECGFiveDays': 				[0.05, 0.125, 2, 0.01, 5000],
