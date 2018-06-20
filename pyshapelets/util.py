@@ -306,6 +306,13 @@ def norm_euclidean_distance(x, y):
     return 1/np.sqrt(len(x)) * np.linalg.norm(x - y)
 
 
+def local_square_dist(x, y):
+    x_sq = np.reshape(np.sum(x ** 2, axis=1), (-1, 1))
+    y_sq = np.reshape(np.sum(y ** 2), (1, 1, 1))
+    xy = np.dot(x, y)
+    return np.min((x_sq + y_sq - 2 * xy) / len(y))
+
+
 def sdist(x, y):
     if len(y) < len(x): return sdist(y, x)
     min_dist = np.inf
@@ -322,6 +329,14 @@ def sdist_no_norm(x, y):
     min_dist = np.inf
     for j in range(len(y) - len(x) + 1):
         dist = norm_euclidean_distance(x, y[j:j+len(x)])
+        min_dist = min(dist, min_dist)
+    return min_dist
+
+def sdist_sq(x, y):
+    if len(y) < len(x): return sdist_sq(y, x)
+    min_dist = np.inf
+    for j in range(len(y) - len(x) + 1):
+        dist = x**2 + y[j:j+len(x)]**2 - 2*x*y[j:j+len(x)]
         min_dist = min(dist, min_dist)
     return min_dist
 

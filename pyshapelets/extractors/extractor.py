@@ -34,6 +34,8 @@ import array
 
 from mstamp.mstamp_stomp import mstamp as mstamp_stomp
 
+from tslearn.clustering import TimeSeriesKMeans
+
 
 def extract_top_k_shapelets(shapelets, k, sort_key):
     """Extract the top-k shapelets. First sort them, according to their
@@ -102,7 +104,7 @@ class Extractor(object):
 
         # If no min_len and max_len are provided, we initialise them
         if min_len is None:
-            min_len = 1
+            min_len = 4
         if max_len is None:
             max_len = self.timeseries.shape[1]
 
@@ -278,6 +280,16 @@ class LearningExtractor(Extractor):
         return best_shapelets
 
 
+def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=1000):
+    n_ts, sz = X.shape
+    indices_ts = np.random.choice(n_ts, size=n_draw, replace=True)
+    indices_time = np.random.choice(sz - shp_len + 1, size=n_draw, replace=True)
+    subseries = np.zeros((n_draw, shp_len))
+    for i in range(n_draw):
+        subseries[i] = X[indices_ts[i], indices_time[i]:indices_time[i] + shp_len]
+    return TimeSeriesKMeans(n_clusters=n_shapelets, metric="euclidean", verbose=False).fit(subseries).cluster_centers_
+
+
 class MultiGeneticExtractor(Extractor):
     def __init__(self, population_size=25, iterations=50, verbose=True,
                  add_noise_prob=0.2, add_shapelet_prob=0.2, 
@@ -324,14 +336,17 @@ class MultiGeneticExtractor(Extractor):
             return list(self.timeseries[rand_row, rand_col:rand_col+rand_length])
 
         def create_individual():
-            if np.random.random() < 0.25:
-                return [random_shapelet()]
+            # TODO: apply TimeSeriesKMeans from TSLearn to initialize some shapelets as well!
+            if np.random.random() < 0.33:
+                rand_length = np.random.randint(self.min_len, self.max_len)
+                rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])))
+                return _kmeans_init_shapelets(self.timeseries, rand_n_shaps, rand_length)
             else:
                 # Seed the population with some motifs
                 rand_length = np.random.randint(self.min_len, self.max_len)
                 subset_idx = np.random.choice(range(len(self.timeseries)), 
                                               size=int(0.5*len(self.timeseries)), 
-                                              replace=False)
+                                              replace=True)
                 ts = self.timeseries[subset_idx, :].flatten()
                 matrix_profile, _ = mstamp_stomp(ts, rand_length)
                 motif_idx = matrix_profile[0, :].argsort()[-1]
@@ -348,7 +363,11 @@ class MultiGeneticExtractor(Extractor):
             for k in range(len(self.timeseries)):
                 D = self.timeseries[k, :]
                 for j in range(len(shapelets)):
-                    dist = util.sdist(shapelets[j], D)
+                    steps = []
+                    for idx in range(len(D) - len(shapelets[j]) + 1):
+                        steps.append(D[idx:idx+len(shapelets[j])])
+                    steps = np.array(steps)
+                    dist = util.local_square_dist(steps, np.array(shapelets[j]))
                     X[k, j] = dist
 
             lr = LogisticRegression()

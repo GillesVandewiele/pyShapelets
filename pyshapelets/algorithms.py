@@ -7,7 +7,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import check_is_fitted
 import extractors.extractor as extractors 
-from util import sdist
+from util import sdist, sdist_no_norm
 import numpy as np
 #from dtaidistance import dtw
 from collections import Counter
@@ -102,7 +102,7 @@ class ShapeletTransformer(BaseEstimator, TransformerMixin):
         feature_vectors = np.zeros((len(X), len(self.shapelets)))
         for smpl_idx, sample in enumerate(X):
             for shap_idx, shapelet in enumerate(self.shapelets):
-                feature_vectors[smpl_idx, shap_idx] = sdist(shapelet, sample)
+                feature_vectors[smpl_idx, shap_idx] = util.sdist_sq(shapelet.flatten(), sample)
 
         return feature_vectors
 
