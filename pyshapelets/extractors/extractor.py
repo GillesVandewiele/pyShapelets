@@ -372,7 +372,7 @@ class MultiGeneticExtractor(Extractor):
 
             lr = LogisticRegression()
             lr.fit(X, self.labels)
-            return (np.mean(cross_val_score(lr, X, self.labels, cv=5, scoring='accuracy')), sum([len(x) for x in shapelets]))#neg_log_loss, f1_micro
+            return (np.mean(cross_val_score(lr, X, self.labels, cv=3, scoring='neg_log_loss')) - 0.0001*sum([len(x) for x in shapelets]), sum([len(x) for x in shapelets]))#neg_log_loss, f1_micro
             #return (lr.score(X, self.labels), len(shapelets))
 
             #return (util.class_scatter_matrix(X, self.labels), sum([len(x) for x in shapelets]))
@@ -381,13 +381,15 @@ class MultiGeneticExtractor(Extractor):
             """Add random noise to a random shapelet"""
             rand_shapelet = np.random.randint(len(shapelets))
             tools.mutGaussian(shapelets[rand_shapelet], 
-                              mu=0, sigma=0.25, indpb=0.25)
+                              mu=0, sigma=0.1, indpb=0.15)
 
             return shapelets,
 
         def add_shapelet(shapelets):
             """Add a random shapelet to the individual"""
-            shapelets.append(random_shapelet())
+            #shapelets.append(random_shapelet())
+            for shap in create_individual():
+                shapelets.append(shap)
 
             return shapelets,
 

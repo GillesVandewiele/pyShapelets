@@ -308,7 +308,7 @@ def norm_euclidean_distance(x, y):
 
 def local_square_dist(x, y):
     x_sq = np.reshape(np.sum(x ** 2, axis=1), (-1, 1))
-    y_sq = np.reshape(np.sum(y ** 2), (1, 1, 1))
+    y_sq = np.reshape(np.sum(y ** 2), (1, 1))
     xy = np.dot(x, y)
     return np.min((x_sq + y_sq - 2 * xy) / len(y))
 
