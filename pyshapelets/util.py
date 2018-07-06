@@ -8,6 +8,7 @@ from sklearn.feature_selection import mutual_info_classif
 import math
 
 from sklearn.neighbors import KDTree, BallTree
+from scipy.spatial.distance import pdist, euclidean
 
 def separability_index_kd(X, y):
     kdt = KDTree(X, leaf_size=10, metric='euclidean')
@@ -55,10 +56,112 @@ def class_scatter_matrix(X, y):
         
     return np.trace(S_b) / np.trace(S_w + S_b)
 
+def  big_s(x, center):
+    len_x = len(x)
+    total = 0
+        
+    for i in range(len_x):
+        total += np.linalg.norm(x[i]-center)    
+    
+    return total/len_x
+
+def davisbouldin(k_list, k_centers):
+    """ Davis Bouldin Index
+    
+    Parameters
+    ----------
+    k_list : list of np.arrays
+        A list containing a numpy array for each cluster |c| = number of clusters
+        c[K] is np.array([N, p]) (N : number of samples in cluster K, p : sample dimension)
+    k_centers : np.array
+        The array of the cluster centers (prototypes) of type np.array([K, p])
+    """
+    len_k_list = len(k_list)
+    big_ss = np.zeros([len_k_list], dtype=np.float64)
+    d_eucs = np.zeros([len_k_list, len_k_list], dtype=np.float64)
+    db = 0    
+
+    for k in range(len_k_list):
+        big_ss[k] = big_s(k_list[k], k_centers[k])
+
+    for k in range(len_k_list):
+        for l in range(0, len_k_list):
+            d_eucs[k, l] = np.linalg.norm(k_centers[k]-k_centers[l])
+
+    for k in range(len_k_list):
+        values = np.zeros([len_k_list-1], dtype=np.float64)
+        for l in range(0, k):
+            values[l] = (big_ss[k] + big_ss[l])/d_eucs[k, l]
+        for l in range(k+1, len_k_list):
+            values[l-1] = (big_ss[k] + big_ss[l])/d_eucs[k, l]
+
+        db += np.max(values)
+    res = db/len_k_list
+    return res
+
+def dbi(X, labels):
+    n_cluster = len(set(labels))
+    cluster_k = [X[labels == k] for k in set(labels)]
+    centroids = [np.mean(k, axis = 0) for k in cluster_k]
+    dbi = davisbouldin(cluster_k, centroids)
+    if not pd.isnull(dbi):
+        return dbi
+    else:
+        return np.inf
+
+def bhattacharyya(X, y, cells_per_dim=10):
+    # Calculate lower and upper bound for each dimension
+    bounds = {}
+    widths = {}
+    col_to_del = []
+    cntr = 0
+    for d in range(X.shape[1]):
+        mi, ma = min(X[:, d]), max(X[:, d])
+        if (ma - mi) < 1e-5:
+            col_to_del.append(d)
+        else:
+            bounds[cntr] = (mi, ma)
+            widths[cntr] = (ma - mi) / cells_per_dim
+            cntr += 1
+    
+    X = np.delete(X, col_to_del, axis=1)
+    #print(X, col_to_del)
+
+    if X.shape[1] == 0:
+        return 1
+            
+    # For each datapoint, calculate its cell in the hypercube
+    cell_assignment_counts = []
+    label_to_idx = {}
+    for i, l in enumerate(set(y)): 
+        cell_assignment_counts.append(defaultdict(int))
+        label_to_idx[l] = i
+        
+    unique_assignments = set()
+    for point_idx, l in zip(range(X.shape[0]), y):
+        assignment = []
+        for dim_idx in range(X.shape[1]):
+            val = X[point_idx, dim_idx]
+            cell = (val - bounds[dim_idx][0])//widths[dim_idx]
+            assignment.append(cell)
+        cell_assignment_counts[label_to_idx[l]][tuple(assignment)] += 1
+        unique_assignments.add(tuple(assignment))
+        
+    totals = {}
+    for l in set(y):
+        totals[l] = sum(cell_assignment_counts[label_to_idx[l]].values())
+    
+    dist = 0
+    for assign in unique_assignments:
+        temp = 1
+        for l in set(y):
+            temp *= cell_assignment_counts[label_to_idx[l]][assign] / totals[l]
+        dist += (temp * (temp != 1)) ** (1 / len(totals))
+    
+    return dist
 
 def class_scatter_measure(X, y):
     pass
-
 
 def direct_class_seperability_measure(X, y):
     pass
@@ -307,9 +410,12 @@ def norm_euclidean_distance(x, y):
 
 
 def local_square_dist(x, y):
-    x_sq = np.reshape(np.sum(x ** 2, axis=1), (-1, 1))
-    y_sq = np.reshape(np.sum(y ** 2), (1, 1))
+    print(x.shape, y.shape)
+    x_sq = np.sum(x ** 2, axis=1)
+    y_sq = np.reshape(y ** 2, (1, 1))
     xy = np.dot(x, y)
+    print(x_sq.shape, y_sq.shape, xy.shape, y, y_sq)
+    input()
     return np.min((x_sq + y_sq - 2 * xy) / len(y))
 
 
@@ -328,9 +434,10 @@ def sdist_no_norm(x, y):
     if len(y) < len(x): return sdist_no_norm(y, x)
     min_dist = np.inf
     for j in range(len(y) - len(x) + 1):
-        dist = norm_euclidean_distance(x, y[j:j+len(x)])
+        dist = euclidean(x, y[j:j+len(x)])
         min_dist = min(dist, min_dist)
-    return min_dist
+    # Distance normalization to not penalize longer shapelets
+    return 1/len(x) * min_dist
 
 def sdist_sq(x, y):
     if len(y) < len(x): return sdist_sq(y, x)

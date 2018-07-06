@@ -41,6 +41,7 @@ def extract_shapelets_with_tree(X_train, y_train, extractor, min_len, max_len):
 
 metadata = sorted(load_data_train_test(), key=lambda x: x['train']['n_samples']**2*x['train']['n_features']**3)
 for dataset in metadata:
+    if dataset['train']['name'] not in ['DiatomSizeReduction', 'ArrowHead', 'Beef', 'MoteStrain', 'Coffee', 'GunPoint']: continue
     # Load the training and testing dataset (features + label vector)
     train_df = pd.read_csv(dataset['train']['data_path'])
     test_df = pd.read_csv(dataset['test']['data_path'])
@@ -68,7 +69,7 @@ for dataset in metadata:
                                                  _min, _max)
     shap_transformer = ShapeletTransformer(method=extractor, min_len=_min, 
                                            max_len=_max)
-    shap_transformer.shapelets = tree_shapelets
+    shap_transformer.shapelets = [np.array(x) for x in tree_shapelets]
 
     X_distances_train = shap_transformer.transform(X_train)
     X_distances_test = shap_transformer.transform(X_test)
