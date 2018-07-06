@@ -3,10 +3,10 @@
 """
 This is a skeleton file that can serve as a starting point for a Python
 console script. To run this script uncomment the following line in the
-entry_points section in setup.cfg:
+entry_points section in setup.py:
 
-    console_scripts =
-     fibonacci = pyshapelets.skeleton:run
+    [console_scripts]
+    fibonacci = pyshapelets.skeleton:run
 
 Then run `python setup.py install` which will install the command `fibonacci`
 inside your current environment.
@@ -25,7 +25,7 @@ from pyshapelets import __version__
 
 __author__ = "GillesVandewiele"
 __copyright__ = "GillesVandewiele"
-__license__ = "none"
+__license__ = "mit"
 
 _logger = logging.getLogger(__name__)
 

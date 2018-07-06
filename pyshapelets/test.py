@@ -1,126 +1,92 @@
-import pandas as pd
+from data.load_all_datasets import load_data
+from extractors.brute_force import extract_shapelet as bf_extractor
+from extractors.fast_shapelets import extract_shapelet as fast_extractor
+from extractors.sax_shapelets import extract_shapelet as sax_extractor
+from extractors.extractor import SAXExtractor, BruteForceExtractor, FastExtractor, LearningExtractor, GeneticExtractor, ParticleSwarmExtractor, ParticleSwarmExtractor2, MultiGeneticExtractor
+from algorithms import ShapeletTreeClassifier, ShapeletTransformer
+import time
+from visualization import visualize_shapelet
+from collections import Counter
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from pyshapelets.shapelet_extraction.extract_shapelets import fit, extract_shapelet
+import util
+from tslearn.shapelets import ShapeletModel, grabocka_params_to_shapelet_size_dict
+import warnings; warnings.filterwarnings('ignore')
 
-# def adjustProbabilities(probs):
-#     for i in range(len(probs)):
-#         j = np.random.choice(len(probs), size=1)[0]
-#         p, p2 = probs[i], probs[j]
-#         mut = np.random.uniform(-min(p, p2), min(p, p2), size=1)[0]
-#         probs[i] += mut
-#         probs[j] -= mut
-#     return probs
-#
-# print(adjustProbabilities([0.1,0.1,0.1,0.5,0.1,0.1]))
+data = sorted(load_data(), key=lambda x: x['n_samples']*x['n_features'])
 
-# # Read in the coffee dataset
-from pyshapelets.util.util import calculate_stats, subsequence_dist, subsequence_dist_z_space, sdist_new
-from pyshapelets.util.util import calculate_stats_old
-from pyshapelets.visualization.visualization import run
+#for i in range(len(data)):
+#    if data[i]['name'] == 'Beef':
+#        data = [data[i]]
+#        break
 
-# data = pd.read_csv('data/Coffee.csv', header=None)
-# # data = data.sample(20)
-#
-# # Set the column names
-# feature_cols = []
-# for i in range(286): feature_cols.append('x_'+str(i))
-# data.columns = feature_cols + ['label']
-# print(len(data))
+extractors = [
+    #LearningExtractor(),
+    #ParticleSwarmExtractor2(particles=50, iterations=100, wait=5),
+    #ParticleSwarmExtractor(particles=50, iterations=100, wait=5),
+    #SAXExtractor(alphabet_size=4, sax_length=16, nr_candidates=100, 
+    #             iterations=5, mask_size=3),
+    MultiGeneticExtractor(population_size=5, iterations=100, verbose=True,
+                     mutation_prob=0.25, crossover_prob=0.4, wait=5),
+    #FastExtractor()
 
-# pre-pruning:
+]
 
-# no pre-pruning:
-# Brute force algorithm took 114.40455603599548
-# 0.12408303257700161 per iteration
+for i in range(10):
+    X = data[i]['data'].drop('target', axis=1)
+    y = data[i]['data'].loc[X.index, 'target']
+    map_dict = {}
+    for j, c in enumerate(np.unique(y)):
+        map_dict[c] = j
+    y = y.map(map_dict) 
 
-data = pd.read_csv('data/Beef.csv', header=None)
-data = data.sample(25 , random_state=1337)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=1337)
 
-# Set the column names
-feature_cols = []
-for i in range(470): feature_cols.append('x_'+str(i))
-data.columns = feature_cols + ['label']
+    """
+    print('Fitting tree on {} ({})'.format(data[i]['name'], X_train.shape))
+    for extractor in extractors:
+        print('\t Using the {} extractor'.format(extractor))
+        shapelet_tree = ShapeletTreeClassifier(method=extractor, max_len=data[i]['n_features']//2, metric='ig')
+        start = time.time()
+        shapelet_tree.fit(X_train, y_train)
+        print(confusion_matrix(y_test, shapelet_tree.predict(X_test.values)))
+        print('\t Took {} seconds'.format(time.time() - start)) 
+    """
 
-# data = data[data['label'] > 0]
+    print('Fitting shapelet transform on {} ({})'.format(data[i]['name'], X_train.shape))
 
-# data = pd.read_csv('data/Wine.csv', header=None)
-# # data = data.sample(20)
-#
-# # Set the column names
-# feature_cols = []
-# for i in range(234): feature_cols.append('x_'+str(i))
-# data.columns = feature_cols + ['label']
-# from collections import Counter
-# print(Counter(data['label']))
-
-# data = pd.read_csv('data/ArrowHead.csv', header=None)
-# feature_cols = []
-# for i in range(251): feature_cols.append('x_'+str(i))
-# data.columns = feature_cols + ['label']
-# print(len(data))
-
-# Split in timeseries and labels
-labels = data['label'].values
-timeseries = data.drop('label', axis=1).values
-
-# m_uv = np.around(calculate_stats(timeseries[0], timeseries[1])[4], 7)
-# m_uv_old = np.around(calculate_stats_old(timeseries[0], timeseries[1])[4], 7)
-#
-# print(m_uv.shape)
-# print(m_uv_old.shape)
-#
-# for i in range(m_uv.shape[0]):
-#     for j in range(m_uv.shape[1]):
-#         if float(m_uv[i, j]) != float(m_uv_old[i, j]):
-#             print(i, j, m_uv[i,j], m_uv_old[i,j])
-#
-# assert np.array_equal(m_uv, m_uv_old)
-
-print(labels)
-print(timeseries)
-
-if __name__ == "__main__":
-    print('Fitting tree')
-    tree = extract_shapelet(timeseries, labels)
-
-    print(tree.shapelet)
-    print(tree.distance)
-
-    distances = []
-
-    for ts, label in zip(timeseries, labels):
-        d, idx = subsequence_dist(ts, tree.shapelet)
-        distances.append((d, label))
-
-    print([x for x in sorted(distances, key=lambda x: x[0])])
-
-    distances = []
-
-    for ts, label in zip(timeseries, labels):
-        stats = calculate_stats(tree.shapelet, ts)
-        d = sdist_new(tree.shapelet, ts, 0, stats)
-        distances.append((d, label))
-
-    print([x for x in sorted(distances, key=lambda x: x[0])])
-
-    distances = []
-
-    for ts, label in zip(timeseries, labels):
-        stats = calculate_stats(tree.right.shapelet, ts)
-        d = sdist_new(tree.right.shapelet, ts, 0, stats)
-        distances.append((d, label))
-
-    print([x for x in sorted(distances, key=lambda x: x[0])])
+    clf = ShapeletModel(n_shapelets_per_size=grabocka_params_to_shapelet_size_dict(n_ts=X_train.shape[0], ts_sz=X_train.shape[1], n_classes=3, l=0.1, r=2), 
+                        max_iter=100, verbose_level=1,
+                        optimizer='adagrad',
+                        weight_regularizer=0.0)
+    clf.fit(
+        np.reshape(
+            X_train.values, 
+            (X_train.shape[0], X_train.shape[1], 1)
+        ), 
+        y_train
+    )
+    predictions = clf.predict(np.reshape(
+            X_test.values, 
+            (X_test.shape[0], X_test.shape[1], 1)
+    ))
+    print(confusion_matrix(y_test, predictions))
 
 
-    # tree.populate_class_probs(timeseries[:-1], labels[:-1])
-    # tree.recalculate_distances(timeseries[:-1], labels[:-1])
+    for extractor in extractors:
+        print('\t Using the {} extractor'.format(extractor))
+        shap_transformer = ShapeletTransformer(method=extractor, max_len=data[i]['n_features']//2, nr_shapelets=5, metric='ig')
+        start = time.time()
+        shap_transformer.fit(X_train, y_train)
+        print(shap_transformer.shapelets)
+        X_distances_train = shap_transformer.transform(X_train)
+        X_distances_test = shap_transformer.transform(X_test)
 
-    for ts, label in zip(timeseries, labels):
-        print(label)
-        print(tree.predict([ts], z_norm=True))
-        print('-'*100)
+        rf = RandomForestClassifier()
+        rf.fit(X_distances_train, y_train)
 
-    # tree = fit(timeseries, labels, max_len=50, min_len=50)
-    # print('Creating visualization')
-    # run(tree)
+        print(confusion_matrix(y_test, rf.predict(X_distances_test)))
+        print('\t Took {} seconds'.format(time.time() - start)) 
+

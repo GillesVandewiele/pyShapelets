@@ -6,7 +6,7 @@ from pyshapelets.skeleton import fib
 
 __author__ = "GillesVandewiele"
 __copyright__ = "GillesVandewiele"
-__license__ = "none"
+__license__ = "mit"
 
 
 def test_fib():
