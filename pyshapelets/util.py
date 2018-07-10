@@ -436,8 +436,7 @@ def sdist_no_norm(x, y):
     for j in range(len(y) - len(x) + 1):
         dist = euclidean(x, y[j:j+len(x)])
         min_dist = min(dist, min_dist)
-    # Distance normalization to not penalize longer shapelets
-    return 1/len(x) * min_dist
+    return min_dist #/ np.sqrt(len(x))
 
 def sdist_sq(x, y):
     if len(y) < len(x): return sdist_sq(y, x)

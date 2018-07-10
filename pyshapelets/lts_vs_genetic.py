@@ -10,7 +10,7 @@ from algorithms import ShapeletTransformer
 from extractors.extractor import MultiGeneticExtractor
 from data.load_all_datasets import load_data_train_test
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, log_loss
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -26,6 +26,114 @@ def grabocka_params_to_shapelet_size_dict(n_ts, ts_sz, n_shapelets, l, r):
         shp_sz = base_size * (sz_idx + 1)
         d[shp_sz] = n_shapelets
     return d
+
+def fit_rf(X_distances_train, y_train, X_distances_test, y_test, out_path):
+    rf = GridSearchCV(RandomForestClassifier(), {'n_estimators': [10, 25, 50, 100, 500], 'max_depth': [None, 3, 7, 15]})
+    rf.fit(X_distances_train, y_train)
+    
+    hard_preds = rf.predict(X_distances_test)
+    proba_preds = rf.predict_proba(X_distances_test)
+
+    print("[RF] Accuracy = {}".format(accuracy_score(y_test, hard_preds)))
+    print("[RF] Logloss = {}".format(log_loss(y_test, proba_preds)))
+
+    hard_preds = pd.DataFrame(hard_preds, columns=['prediction'])
+    proba_preds = pd.DataFrame(proba_preds, columns=['proba_{}'.format(x) for x in set(list(y_train) + list(y_test))])
+
+    hard_preds.to_csv(out_path.split('.')[0]+'_rf_hard.csv')
+    proba_preds.to_csv(out_path.split('.')[0]+'_rf_proba.csv')
+
+def fit_lr(X_distances_train, y_train, X_distances_test, y_test, out_path):
+    lr = GridSearchCV(LogisticRegression(), {'penalty': ['l1', 'l2'], 'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
+    lr.fit(X_distances_train, y_train)
+    
+    hard_preds = lr.predict(X_distances_test)
+    proba_preds = lr.predict_proba(X_distances_test)
+
+    print("[LR] Accuracy = {}".format(accuracy_score(y_test, hard_preds)))
+    print("[LR] Logloss = {}".format(log_loss(y_test, proba_preds)))
+
+    hard_preds = pd.DataFrame(hard_preds, columns=['prediction'])
+    proba_preds = pd.DataFrame(proba_preds, columns=['proba_{}'.format(x) for x in set(list(y_train) + list(y_test))])
+
+    hard_preds.to_csv(out_path.split('.')[0]+'_lr_hard.csv')
+    proba_preds.to_csv(out_path.split('.')[0]+'_lr_proba.csv')
+
+def fit_svm(X_distances_train, y_train, X_distances_test, y_test, out_path):
+    svc = GridSearchCV(SVC(kernel='linear', probability=True), {'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
+    svc.fit(X_distances_train, y_train)
+    
+    hard_preds = svc.predict(X_distances_test)
+    proba_preds = svc.predict_proba(X_distances_test)
+
+    print("[SVM] Accuracy = {}".format(accuracy_score(y_test, hard_preds)))
+    print("[SVM] Logloss = {}".format(log_loss(y_test, proba_preds)))
+
+    hard_preds = pd.DataFrame(hard_preds, columns=['prediction'])
+    proba_preds = pd.DataFrame(proba_preds, columns=['proba_{}'.format(x) for x in set(list(y_train) + list(y_test))])
+
+    hard_preds.to_csv(out_path.split('.')[0]+'_svm_hard.csv')
+    proba_preds.to_csv(out_path.split('.')[0]+'_svm_proba.csv')
+
+def fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, shap_out_path, pred_out_path):
+    # Fit LTS model, print metrics on test-set, write away predictions and shapelets
+    shapelet_dict = grabocka_params_to_shapelet_size_dict(
+            X_train.shape[0], X_train.shape[1], int(nr_shap*X_train.shape[1]), l, r
+    )
+    
+    clf = ShapeletModel(n_shapelets_per_size=shapelet_dict, 
+                        max_iter=max_it, verbose_level=0, batch_size=8,
+                        optimizer='sgd', weight_regularizer=reg)
+
+    start = time.time()
+    clf.fit(
+        np.reshape(
+            X_train, 
+            (X_train.shape[0], X_train.shape[1], 1)
+        ), 
+        y_train
+    )
+    learning_time = time.time() - start
+
+    print('Learning shapelets took {}s'.format(learning_time))
+
+    with open(shap_out_path, 'w+') as ofp:
+        for shap in clf.shapelets_:
+            ofp.write(str(np.reshape(shap, (-1))) + '\n')
+
+    X_distances_train = clf.transform(X_train)
+    X_distances_test = clf.transform(X_test)
+
+    print('Max distance value = {}'.format(np.max(X_distances_train)))
+
+    fit_rf(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
+    fit_lr(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
+    fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
+
+def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path):
+    
+    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=10, plot=False)
+    start = time.time()
+    shapelets = genetic_extractor.extract(X_train, y_train)
+    shap_transformer = ShapeletTransformer()
+    shap_transformer.shapelets = shapelets
+    genetic_time = time.time() - start
+
+    print('Genetic shapelet discovery took {}s'.format(genetic_time))
+
+
+    with open(shap_out_path, 'w+') as ofp:
+        for shap in shap_transformer.shapelets:
+            ofp.write(str(np.reshape(shap, (-1))) + '\n')
+
+    X_distances_train = shap_transformer.transform(X_train)
+    X_distances_test = shap_transformer.transform(X_test)
+
+    print('Max distance value = {}'.format(np.max(X_distances_train)))
+
+    fit_rf(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
+    fit_lr(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
+    fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
 
 # For each dataset we specify the:
 #    * Number of shapelets to extract of each length (specified as a fraction of TS length)
@@ -81,111 +189,14 @@ for dataset in metadata:
 
     y_train = y_train.values
     y_test = y_test.values
+
     nr_shap, l, r, reg, max_it = hyper_parameters_lts[dataset['train']['name']]
-    shapelet_dict = grabocka_params_to_shapelet_size_dict(
-            X_train.shape[0], X_train.shape[1], int(nr_shap*X_train.shape[1]), l, r
-    )
-    clf = ShapeletModel(n_shapelets_per_size=shapelet_dict, 
-                        max_iter=max_it, verbose_level=0, batch_size=8,
-                        optimizer='sgd', weight_regularizer=reg)
-    start = time.time()
-    clf.fit(
-        np.reshape(
-            X_train, 
-            (X_train.shape[0], X_train.shape[1], 1)
-        ), 
-        y_train
-    )
-    learning_time = time.time() - start
 
-    learning_accuracy = accuracy_score(y_test, clf.predict(X_test))
-
-    with open('results/lts_vs_genetic/{}_learned_shapelets.txt'.format(dataset['train']['name']), 'w+') as ofp:
-    	for shap in clf.shapelets_:
-    		ofp.write(str(shap) + '\n')
-
-    X_distances_train = clf.transform(X_train)
-    X_distances_test = clf.transform(X_test)
-
-    print(X_distances_train[:10, :], y_train[:10])
-
-    rf = GridSearchCV(RandomForestClassifier(), {'n_estimators': [10, 25, 50, 100, 500]})
-    rf.fit(X_distances_train, y_train)
-
-    learning_accuracy_rf = accuracy_score(y_test, rf.predict(X_distances_test))
-
-    svc = GridSearchCV(SVC(kernel='linear'), {'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
-    svc.fit(X_distances_train, y_train)
-
-    learning_accuracy_svm = accuracy_score(y_test, svc.predict(X_distances_test))
-
-    lr = GridSearchCV(LogisticRegression(), {'penalty': ['l1', 'l2'], 'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
-    lr.fit(X_distances_train, y_train)
-
-    learning_accuracy_lr = accuracy_score(y_test, lr.predict(X_distances_test))
-
-    print(learning_accuracy, learning_accuracy_lr, learning_accuracy_svm, learning_accuracy_rf)
-
-    print('Learning shapelets took {}s'.format(learning_time))
-    print('Accuracies are equal to: LR={}, RF={}, SVM={}'.format(learning_accuracy_lr, learning_accuracy_rf, learning_accuracy_svm))
-    
-    #plt.figure()
-    #for shap in clf.shapelets_:
-    #    plt.plot(shap)
-    #plt.show()
-
-    print(X_train.shape)
-    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=100, wait=10, plot=False)
-    start = time.time()
-    shapelets = genetic_extractor.extract(X_train, y_train)
-    shap_transformer = ShapeletTransformer()
-    shap_transformer.shapelets = shapelets
-    #shap_transformer.fit(X_train, y_train)
-    genetic_time = time.time() - start
+    fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, 
+            'results/lts_vs_genetic/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
+            'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
 
 
-    with open('results/lts_vs_genetic/{}_genetic_shapelets.txt'.format(dataset['train']['name']), 'w+') as ofp:
-    	for shap in shap_transformer.shapelets:
-    		ofp.write(str(shap) + '\n')
-
-    X_distances_train = shap_transformer.transform(X_train)
-    X_distances_test = shap_transformer.transform(X_test)
-
-    print(X_distances_train[:10, :], y_train[:10])
-
-    rf = GridSearchCV(RandomForestClassifier(), {'n_estimators': [10, 25, 50, 100, 500]})
-    rf.fit(X_distances_train, y_train)
-
-    genetic_accuracy_rf = accuracy_score(y_test, rf.predict(X_distances_test))
-
-    svc = GridSearchCV(SVC(kernel='linear'), {'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
-    svc.fit(X_distances_train, y_train)
-
-    genetic_accuracy_svm = accuracy_score(y_test, svc.predict(X_distances_test))
-
-    lr = GridSearchCV(LogisticRegression(), {'penalty': ['l1', 'l2'], 'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
-    lr.fit(X_distances_train, y_train)
-
-    genetic_accuracy_lr = accuracy_score(y_test, lr.predict(X_distances_test))
-
-    print('RF Acc:', accuracy_score(y_test, rf.predict(X_distances_test)), accuracy_score(y_train, rf.predict(X_distances_train)))
-    print('SVM Acc:', accuracy_score(y_test, svc.predict(X_distances_test)))
-
-    #plt.figure()
-    #for shap in shap_transformer.shapelets:
-    #    plt.plot(shap)
-    #plt.show()
-
-    result_vectors.append([dataset['train']['name']] + [genetic_time, genetic_accuracy_lr, genetic_accuracy_rf, 
-                                                        genetic_accuracy_svm, learning_time, 
-                                                        learning_accuracy_lr, learning_accuracy_rf, 
-                                                        learning_accuracy_svm])
-
-    print('Genetic extraction of shapelets took {}s'.format(genetic_time))
-    print('Accuracies are equal to: LR={}, RF={}, SVM={}'.format(genetic_accuracy_lr, genetic_accuracy_rf, genetic_accuracy_svm))
-
-results_df = pd.DataFrame(result_vectors)
-results_df.columns = ['Dataset Name', 'Genetic Time', 'Genetic Accuracy (LR)', 'Genetic Accuracy (RF)', 
-                      'Genetic Accuracy (SVM)', 'Learning Time', 'Learning Accuracy (LR)',
-                      'Learning Accuracy (RF)', 'Learning Accuracy (SVM)']
-results_df.to_csv('results/lts_vs_genetic/results_{}.csv'.format(int(time.time())))
+    fit_genetic(X_train, y_train, X_test, y_test,  
+            'results/lts_vs_genetic/{}_genetic_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
+            'results/lts_vs_genetic/{}_genetic_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))

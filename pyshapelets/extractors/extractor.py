@@ -283,7 +283,7 @@ class LearningExtractor(Extractor):
         return best_shapelets
 
 
-def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=500):
+def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=2500):
     n_ts, sz = X.shape
     indices_ts = np.random.choice(n_ts, size=n_draw, replace=True)
     indices_time = np.random.choice(sz - shp_len + 1, size=n_draw, replace=True)
@@ -341,10 +341,10 @@ class MultiGeneticExtractor(Extractor):
         def create_individual():
             rand = np.random.random()
             rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])) + 1)
-            if rand < 0.2:
+            if rand < 0.25:
                 rand_length = np.random.randint(self.min_len, self.max_len)
                 return _kmeans_init_shapelets(self.timeseries, rand_n_shaps, rand_length)
-            elif 0.2 < rand < 0.6:
+            elif 0.25 < rand < 0.65:
                 # Seed the population with some motifs
                 shaps = []
                 for _ in range(rand_n_shaps):
@@ -390,11 +390,11 @@ class MultiGeneticExtractor(Extractor):
             #    similarity_matrix = cdist_gak(shapelets, sigma=sigma_gak(shapelets))
             #    np.fill_diagonal(similarity_matrix, 0)
             #    sim_score = sum(np.max(similarity_matrix, axis=1))
-                #sim_score /= similarity_matrix.shape[0]
+            #    sim_score /= similarity_matrix.shape[0]
                 
             lr = LogisticRegression()
             #lr.fit(X, self.labels)
-            cv_score = np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=1337), scoring='neg_log_loss'))
+            cv_score = np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337), scoring='neg_log_loss'))
             #cv_score /= np.log(1/len(set(self.labels)))
 
 
