@@ -340,22 +340,24 @@ class MultiGeneticExtractor(Extractor):
 
         def create_individual():
             rand = np.random.random()
-            if rand < 0.35:
+            rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])) + 1)
+            if rand < 0.2:
                 rand_length = np.random.randint(self.min_len, self.max_len)
-                rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])) + 1)
                 return _kmeans_init_shapelets(self.timeseries, rand_n_shaps, rand_length)
-            elif 0.35 < rand < 0.7:
+            elif 0.2 < rand < 0.6:
                 # Seed the population with some motifs
-                rand_length = np.random.randint(self.min_len, self.max_len)
-                subset_idx = np.random.choice(range(len(self.timeseries)), 
-                                              size=int(0.75*len(self.timeseries)), 
-                                              replace=True)
-                ts = self.timeseries[subset_idx, :].flatten()
-                matrix_profile, _ = mstamp_stomp(ts, rand_length)
-                motif_idx = matrix_profile[0, :].argsort()[-1]
-                return [ts[motif_idx:motif_idx + rand_length]]
+                shaps = []
+                for _ in range(rand_n_shaps):
+                    rand_length = np.random.randint(self.min_len, self.max_len)
+                    subset_idx = np.random.choice(range(len(self.timeseries)), 
+                                                  size=int(0.75*len(self.timeseries)), 
+                                                  replace=True)
+                    ts = self.timeseries[subset_idx, :].flatten()
+                    matrix_profile, _ = mstamp_stomp(ts, rand_length)
+                    motif_idx = matrix_profile[0, :].argsort()[-1]
+                    shaps.append(ts[motif_idx:motif_idx + rand_length])
+                return shaps
             else:
-                rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])) + 1)
                 shaps = []
                 for _ in range(rand_n_shaps):
                     shaps.append(random_shapelet())
