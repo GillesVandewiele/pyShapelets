@@ -111,7 +111,7 @@ class ShapeletTransformer(BaseEstimator, TransformerMixin):
                 """
                 #if smpl_idx == 0:
                 #    print(shapelet.flatten())
-                feature_vectors[smpl_idx, shap_idx] = util.sdist_no_norm(shapelet.flatten(), sample)
+                feature_vectors[smpl_idx, shap_idx] = util.sdist(shapelet.flatten(), sample)
 
         return feature_vectors
 
