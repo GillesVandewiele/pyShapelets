@@ -102,15 +102,6 @@ class ShapeletTransformer(BaseEstimator, TransformerMixin):
         feature_vectors = np.zeros((len(X), len(self.shapelets)))
         for smpl_idx, sample in enumerate(X):
             for shap_idx, shapelet in enumerate(self.shapelets):
-                """
-                steps = []
-                for idx in range(len(sample) - len(shapelet) + 1):
-                    steps.append(sample[idx:idx+len(shapelet)])
-                steps = np.array(steps)
-                feature_vectors[smpl_idx, shap_idx] = util.local_square_dist(steps, np.array(shapelet))
-                """
-                #if smpl_idx == 0:
-                #    print(shapelet.flatten())
                 feature_vectors[smpl_idx, shap_idx] = util.sdist_no_norm(shapelet.flatten(), sample)
 
         return feature_vectors
