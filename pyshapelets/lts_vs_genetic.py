@@ -107,7 +107,7 @@ for dataset in metadata:
     X_distances_train = clf.transform(X_train)
     X_distances_test = clf.transform(X_test)
 
-    print(X_distances_train[:10, :], y_train[:10])
+    print(np.max(X_distances_train), y_train[:10])
 
     rf = GridSearchCV(RandomForestClassifier(), {'n_estimators': [10, 25, 50, 100, 500]})
     rf.fit(X_distances_train, y_train)
@@ -135,7 +135,7 @@ for dataset in metadata:
     #plt.show()
 
     print(X_train.shape)
-    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=100, wait=10, plot=False)
+    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=10, plot=False)
     start = time.time()
     shapelets = genetic_extractor.extract(X_train, y_train)
     shap_transformer = ShapeletTransformer()
@@ -151,7 +151,7 @@ for dataset in metadata:
     X_distances_train = shap_transformer.transform(X_train)
     X_distances_test = shap_transformer.transform(X_test)
 
-    print(X_distances_train[:10, :], y_train[:10])
+    print(np.max(X_distances_train), y_train[:10])
 
     rf = GridSearchCV(RandomForestClassifier(), {'n_estimators': [10, 25, 50, 100, 500]})
     rf.fit(X_distances_train, y_train)
