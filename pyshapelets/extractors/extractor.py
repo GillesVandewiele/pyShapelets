@@ -25,7 +25,10 @@ from tslearn.clustering import GlobalAlignmentKernelKMeans, silhouette_score
 from tslearn.barycenters import euclidean_barycenter
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.svm import SVC
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.metrics import log_loss
 from sklearn import set_config
 
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -280,7 +283,7 @@ class LearningExtractor(Extractor):
         return best_shapelets
 
 
-def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=1000):
+def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=2500):
     n_ts, sz = X.shape
     indices_ts = np.random.choice(n_ts, size=n_draw, replace=True)
     indices_time = np.random.choice(sz - shp_len + 1, size=n_draw, replace=True)
@@ -292,13 +295,13 @@ def _kmeans_init_shapelets(X, n_shapelets, shp_len, n_draw=1000):
 
 class MultiGeneticExtractor(Extractor):
     def __init__(self, population_size=25, iterations=50, verbose=True,
-                 add_noise_prob=0.2, add_shapelet_prob=0.2, 
-                 remove_shapelet_prob=0.2, crossover_prob=0.5, wait=10,
+                 add_noise_prob=0.3, add_shapelet_prob=0.3, 
+                 remove_shapelet_prob=0.3, crossover_prob=0.66, wait=10,
                  plot=True):
         """
 
         """
-        #np.random.seed(1337)
+        np.random.seed(1337)
         self.population_size = population_size
         self.iterations = iterations
         self.verbose = verbose
@@ -333,24 +336,33 @@ class MultiGeneticExtractor(Extractor):
             rand_row = np.random.randint(self.timeseries.shape[0])
             rand_length = np.random.randint(self.min_len, self.max_len)
             rand_col = np.random.randint(self.timeseries.shape[1] - rand_length)
-            return list(self.timeseries[rand_row, rand_col:rand_col+rand_length])
+            return self.timeseries[rand_row, rand_col:rand_col+rand_length]
 
         def create_individual():
-            # TODO: apply TimeSeriesKMeans from TSLearn to initialize some shapelets as well!
-            if np.random.random() < 0.33:
+            rand = np.random.random()
+            rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])) + 1)
+            if rand < 0.25:
                 rand_length = np.random.randint(self.min_len, self.max_len)
-                rand_n_shaps = np.random.randint(2, int(np.sqrt(self.timeseries.shape[1])))
                 return _kmeans_init_shapelets(self.timeseries, rand_n_shaps, rand_length)
-            else:
+            elif 0.25 < rand < 0.65:
                 # Seed the population with some motifs
-                rand_length = np.random.randint(self.min_len, self.max_len)
-                subset_idx = np.random.choice(range(len(self.timeseries)), 
-                                              size=int(0.5*len(self.timeseries)), 
-                                              replace=True)
-                ts = self.timeseries[subset_idx, :].flatten()
-                matrix_profile, _ = mstamp_stomp(ts, rand_length)
-                motif_idx = matrix_profile[0, :].argsort()[-1]
-                return [ts[motif_idx:motif_idx + rand_length]]
+                shaps = []
+                for _ in range(rand_n_shaps):
+                    rand_length = np.random.randint(self.min_len, self.max_len)
+                    subset_idx = np.random.choice(range(len(self.timeseries)), 
+                                                  size=int(0.75*len(self.timeseries)), 
+                                                  replace=True)
+                    ts = self.timeseries[subset_idx, :].flatten()
+                    matrix_profile, _ = mstamp_stomp(ts, rand_length)
+                    motif_idx = matrix_profile[0, :].argsort()[-1]
+                    shaps.append(ts[motif_idx:motif_idx + rand_length])
+                return shaps
+            else:
+                shaps = []
+                for _ in range(rand_n_shaps):
+                    shaps.append(random_shapelet())
+                return shaps
+
 
         def cost(shapelets):
             """Evaluate an individual, composed of multiple shapelets. First,
@@ -363,16 +375,36 @@ class MultiGeneticExtractor(Extractor):
             for k in range(len(self.timeseries)):
                 D = self.timeseries[k, :]
                 for j in range(len(shapelets)):
+                    """
                     steps = []
                     for idx in range(len(D) - len(shapelets[j]) + 1):
                         steps.append(D[idx:idx+len(shapelets[j])])
                     steps = np.array(steps)
                     dist = util.local_square_dist(steps, np.array(shapelets[j]))
+                    """
+                    dist = util.sdist_no_norm(shapelets[j].flatten(), D)
                     X[k, j] = dist
 
+            #sim_score = 0
+            #if len(shapelets) > 1:
+            #    similarity_matrix = cdist_gak(shapelets, sigma=sigma_gak(shapelets))
+            #    np.fill_diagonal(similarity_matrix, 0)
+            #    sim_score = sum(np.max(similarity_matrix, axis=1))
+            #    sim_score /= similarity_matrix.shape[0]
+                
             lr = LogisticRegression()
-            lr.fit(X, self.labels)
-            return (np.mean(cross_val_score(lr, X, self.labels, cv=3, scoring='neg_log_loss')) - 0.0001*sum([len(x) for x in shapelets]), sum([len(x) for x in shapelets]))#neg_log_loss, f1_micro
+            #lr.fit(X, self.labels)
+            cv_score = np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337), scoring='neg_log_loss'))
+            #cv_score /= np.log(1/len(set(self.labels)))
+
+
+            #print('Acc = {} || dbi = {}'.format(np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337), scoring='accuracy')), util.dbi(X, self.labels)))
+
+            #cv_score = -log_loss(self.labels, lr.predict_proba(X)) / np.log(1/len(set(self.labels)))
+            #print(cv_score, len(shapelets), sim_score, cv_score - 0.00075*sim_score - 0.005*len(shapelets))
+
+            return (cv_score, sum([len(x) for x in shapelets]))#(1 - util.bhattacharyya(X, self.labels)) * (1 - cv_score) - 0.1*sim_score,
+
             #return (lr.score(X, self.labels), len(shapelets))
 
             #return (util.class_scatter_matrix(X, self.labels), sum([len(x) for x in shapelets]))
@@ -388,8 +420,7 @@ class MultiGeneticExtractor(Extractor):
         def add_shapelet(shapelets):
             """Add a random shapelet to the individual"""
             #shapelets.append(random_shapelet())
-            for shap in create_individual():
-                shapelets.append(shap)
+            shapelets.append(random_shapelet())
 
             return shapelets,
 
@@ -430,7 +461,7 @@ class MultiGeneticExtractor(Extractor):
             similarity_matrix = cdist_gak(ind1, ind2)#, sigma=sigma_gak(list(ind1)+list(ind2)))
             for row_idx in range(similarity_matrix.shape[0]):
                 non_equals = similarity_matrix[row_idx, :][similarity_matrix[row_idx, :] != 1.0]
-                if len(non_equals):
+                if len(non_equals):# and np.random.random() < self.crossover_prob:
                     max_col_idx = np.argmax(similarity_matrix[row_idx, :][similarity_matrix[row_idx, :] != 1.0])
                     ind1[row_idx] = euclidean_barycenter([list(ind1[row_idx]).copy(), list(ind2[max_col_idx]).copy()])
                     ind1[row_idx] = ind1[row_idx][~np.isnan(ind1[row_idx])]
@@ -441,7 +472,7 @@ class MultiGeneticExtractor(Extractor):
 
             for col_idx in range(similarity_matrix.shape[1]):
                 non_equals = similarity_matrix[:, col_idx][similarity_matrix[:, col_idx] != 1.0]
-                if len(non_equals):
+                if len(non_equals):# and np.random.random() < self.crossover_prob:
                     max_row_idx = np.argmax(similarity_matrix[:, col_idx])
                     ind2[col_idx] = euclidean_barycenter([list(ind1[max_row_idx]).copy(), list(ind2[col_idx]).copy()])
                     ind2[col_idx] = ind2[col_idx][~np.isnan(ind2[col_idx])]
@@ -591,7 +622,7 @@ class MultiGeneticExtractor(Extractor):
                     pass
             #print('Crossovers took {}s'.format(time.time() - start))
 
-            # Apply mutation to each individualnoise_prob:
+            # Apply mutation to each individual
             start = time.time()
             for idx, indiv in enumerate(offspring):
                 if np.random.random() < self.add_noise_prob:
@@ -659,7 +690,7 @@ class GeneticExtractor(Extractor):
         self.mutation_prob = mutation_prob
         self.crossover_prob = crossover_prob
         self.wait = wait
-        np.random.seed(1337)
+        #np.random.seed(1337)
 
 
     def extract(self, timeseries, labels, min_len=None, max_len=None, 
