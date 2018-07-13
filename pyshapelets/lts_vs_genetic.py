@@ -111,7 +111,6 @@ def fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, shap_out_path, 
     fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
 
 def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path):
-    
     genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=10, plot=False)
     start = time.time()
     shapelets = genetic_extractor.extract(X_train, y_train)
