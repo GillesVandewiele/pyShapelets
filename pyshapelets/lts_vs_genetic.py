@@ -147,11 +147,11 @@ hyper_parameters_lts = {
 	#'BirdChicken': 				[0.3,  0.075, 1, 0.1,  10000],
 	#'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
 	#'Coffee': 					[0.05, 0.075, 2, 0.01, 5000],
-	#TODO:#'DiatomSizeReduction': 		[0.3,  0.175, 2, 0.01, 10000],
+	'DiatomSizeReduction': 		[0.3,  0.175, 2, 0.01, 10000],
 	#'ECGFiveDays': 				[0.05, 0.125, 2, 0.01, 10000],
 	#'FaceFour': 				[0.3,  0.175, 3, 1.0,  5000],
 	#'GunPoint': 				[0.15, 0.2,   3, 0.1,  10000],
-	'ItalyPowerDemand':			[0.3,  0.2,   3, 0.01, 5000],
+	#'ItalyPowerDemand':			[0.3,  0.2,   3, 0.01, 5000],
 	#'Lightning7': 				[0.05, 0.075, 3, 1,    5000],
 	#'MedicalImages': 			[0.3,  0.2,   2, 1,    10000],
 	#'MoteStrain': 				[0.3,  0.2,   3, 1,    10000],
@@ -185,6 +185,8 @@ for dataset in metadata:
         map_dict[c] = j
     y_train = y_train.map(map_dict) 
     y_test = y_test.map(map_dict)
+
+    print(set(y_train), set(y_test))
 
     y_train = y_train.values
     y_test = y_test.values

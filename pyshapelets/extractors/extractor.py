@@ -27,8 +27,8 @@ from tslearn.barycenters import euclidean_barycenter
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.svm import SVC
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import log_loss
+from sklearn.model_selection import cross_val_score, StratifiedKFold, cross_val_predict
+from sklearn.metrics import log_loss, make_scorer
 from sklearn import set_config
 
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -394,7 +394,7 @@ class MultiGeneticExtractor(Extractor):
                 
             lr = LogisticRegression()
             #lr.fit(X, self.labels)
-            cv_score = np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337), scoring='neg_log_loss'))
+            cv_score = -log_loss(self.labels, cross_val_predict(lr, X, self.labels, method='predict_proba', cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337)))
             #cv_score /= np.log(1/len(set(self.labels)))
 
 
