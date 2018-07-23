@@ -193,9 +193,9 @@ for dataset in metadata:
 
     nr_shap, l, r, reg, max_it = hyper_parameters_lts[dataset['train']['name']]
 
-    #fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, 
-    #        'results/lts_vs_genetic/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
-    #        'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
+    fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, 
+            'results/lts_vs_genetic/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
+            'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
 
 
     fit_genetic(X_train, y_train, X_test, y_test,  
