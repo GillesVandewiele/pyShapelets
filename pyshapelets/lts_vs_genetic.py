@@ -75,14 +75,14 @@ def fit_svm(X_distances_train, y_train, X_distances_test, y_test, out_path):
     hard_preds.to_csv(out_path.split('.')[0]+'_svm_hard.csv')
     proba_preds.to_csv(out_path.split('.')[0]+'_svm_proba.csv')
 
-def fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, shap_out_path, pred_out_path):
+def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_out_path, pred_out_path):
     # Fit LTS model, print metrics on test-set, write away predictions and shapelets
     shapelet_dict = grabocka_params_to_shapelet_size_dict(
             X_train.shape[0], X_train.shape[1], int(nr_shap*X_train.shape[1]), l, r
     )
     
     clf = ShapeletModel(n_shapelets_per_size=shapelet_dict, 
-                        max_iter=max_it, verbose_level=0, batch_size=8,
+                        max_iter=max_it, verbose_level=0, batch_size=1,
                         optimizer='sgd', weight_regularizer=reg)
 
     start = time.time()
@@ -141,27 +141,27 @@ def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path):
 #    * Weight regularizer
 #    * Number of iterations
 hyper_parameters_lts = {
-	'Adiac': 					[0.3,  0.2,   3, 0.01, 10000],
-	'Beef': 					[0.15, 0.125, 3, 0.01, 10000],
-	'BeetleFly': 				[0.15, 0.125, 1, 0.01, 5000],
-	'BirdChicken': 				[0.3,  0.075, 1, 0.1,  10000],
-	'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
-	'Coffee': 					[0.05, 0.075, 2, 0.01, 5000],
+	#'Adiac': 					[0.3,  0.2,   3, 0.01, 10000],
+	#'Beef': 					[0.15, 0.125, 3, 0.01, 10000],
+	#'BeetleFly': 				[0.15, 0.125, 1, 0.01, 5000],
+	#'BirdChicken': 				[0.3,  0.075, 1, 0.1,  10000],
+	#'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
+	#'Coffee': 					[0.05, 0.075, 2, 0.01, 5000],
 	'DiatomSizeReduction': 		[0.3,  0.175, 2, 0.01, 10000],
-	'ECGFiveDays': 				[0.05, 0.125, 2, 0.01, 10000],
-	'FaceFour': 				[0.3,  0.175, 3, 1.0,  5000],
-	'GunPoint': 				[0.15, 0.2,   3, 0.1,  10000],
-	'ItalyPowerDemand':			[0.3,  0.2,   3, 0.01, 5000],
-	'Lightning7': 				[0.05, 0.075, 3, 1,    5000],
-	'MedicalImages': 			[0.3,  0.2,   2, 1,    10000],
-	'MoteStrain': 				[0.3,  0.2,   3, 1,    10000],
-	'Otoliths': 				[0.15, 0.125, 3, 0.01, 2000],
-	'SonyAIBORobotSurface1': 	[0.3,  0.125, 2, 0.01, 10000],
-	'SonyAIBORobotSurface2': 	[0.3,  0.125, 2, 0.01, 10000],
-	'Symbols': 					[0.05, 0.175, 1, 0.1,  5000],
-	'SyntheticControl': 		[0.15, 0.125, 3, 0.01, 5000],
-	'Trace': 					[0.15, 0.125, 2, 0.1,  10000],
-	'TwoLeadECG': 				[0.3,  0.075, 1, 0.1,  10000]
+	#'ECGFiveDays': 				[0.05, 0.125, 2, 0.01, 10000],
+	#'FaceFour': 				[0.3,  0.175, 3, 1.0,  5000],
+	#'GunPoint': 				[0.15, 0.2,   3, 0.1,  10000],
+	#'ItalyPowerDemand':			[0.3,  0.2,   3, 0.01, 5000],
+	#'Lightning7': 				[0.05, 0.075, 3, 1,    5000],
+	#'MedicalImages': 			[0.3,  0.2,   2, 1,    10000],
+	#'MoteStrain': 				[0.3,  0.2,   3, 1,    10000],
+	#NOT AVAILABLE#'Otoliths': 				[0.15, 0.125, 3, 0.01, 2000],
+	#SonyAIBORobotSurface1': 	[0.3,  0.125, 2, 0.01, 10000],
+	#'SonyAIBORobotSurface2': 	[0.3,  0.125, 2, 0.01, 10000],
+	#'Symbols': 					[0.05, 0.175, 1, 0.1,  5000],
+	#'SyntheticControl': 		[0.15, 0.125, 3, 0.01, 5000],
+	#'Trace': 					[0.15, 0.125, 2, 0.1,  10000],
+	#'TwoLeadECG': 				[0.3,  0.075, 1, 0.1,  10000]
 }
 
 metadata = sorted(load_data_train_test(), key=lambda x: x['train']['n_samples']**2*x['train']['n_features']**3)
@@ -193,7 +193,7 @@ for dataset in metadata:
 
     nr_shap, l, r, reg, max_it = hyper_parameters_lts[dataset['train']['name']]
 
-    fit_lts(X_train, y_train, X_test, y_test, l, r, max_it, reg, 
+    fit_lts(X_train, y_train, X_test, y_test, nr_shap, l, r, reg, max_it,
             'results/lts_vs_genetic/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
             'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
 
