@@ -23,8 +23,8 @@ from tslearn.shapelets import ShapeletModel
 np.random.seed(1337)
 random.seed(1337)
 
-TRAIN_PATH = 'data/partitioned/Coffee/Coffee_train.csv'
-TEST_PATH = 'data/partitioned/Coffee/Coffee_test.csv'
+TRAIN_PATH = 'data/partitioned/MoteStrain/MoteStrain_train.csv'
+TEST_PATH = 'data/partitioned/MoteStrain/MoteStrain_test.csv'
 
 # Load the training and testing dataset (features + label vector)
 train_df = pd.read_csv(TRAIN_PATH)
