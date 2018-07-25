@@ -102,7 +102,7 @@ def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_
             ofp.write(str(np.reshape(shap, (-1))) + '\n')
 
     with open(timing_out_path, 'w+') as ofp:
-        ofp.write(learning_time)
+        ofp.write(genetic_time)
 
     X_distances_train = clf.transform(X_train)
     X_distances_test = clf.transform(X_test)
@@ -114,7 +114,7 @@ def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_
     fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
 
 def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path, timing_out_path):
-    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=25, plot=False)
+    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=25, plot=False)
     start = time.time()
     shapelets = genetic_extractor.extract(X_train, y_train)
     shap_transformer = ShapeletTransformer()
