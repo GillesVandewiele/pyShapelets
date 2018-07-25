@@ -27,8 +27,8 @@ from tslearn.barycenters import euclidean_barycenter
 from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.svm import SVC
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.metrics import log_loss
+from sklearn.model_selection import cross_val_score, StratifiedKFold, cross_val_predict
+from sklearn.metrics import log_loss, make_scorer
 from sklearn import set_config
 
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -394,7 +394,7 @@ class MultiGeneticExtractor(Extractor):
                 
             lr = LogisticRegression()
             #lr.fit(X, self.labels)
-            cv_score = np.mean(cross_val_score(lr, X, self.labels, cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337), scoring='neg_log_loss'))
+            cv_score = -log_loss(self.labels, cross_val_predict(lr, X, self.labels, method='predict_proba', cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1337)))
             #cv_score /= np.log(1/len(set(self.labels)))
 
 
@@ -465,21 +465,13 @@ class MultiGeneticExtractor(Extractor):
                     max_col_idx = np.argmax(similarity_matrix[row_idx, :][similarity_matrix[row_idx, :] != 1.0])
                     ind1[row_idx] = euclidean_barycenter([list(ind1[row_idx]).copy(), list(ind2[max_col_idx]).copy()])
                     ind1[row_idx] = ind1[row_idx][~np.isnan(ind1[row_idx])]
-                    #if np.random.random() < 0.5:
-                    #    ind1[row_idx] = tools.cxOnePoint(list(ind1[row_idx]).copy(), list(ind2[max_col_idx]).copy())[0]
-                    #else:
-                    #    ind1[row_idx] = tools.cxTwoPoint(list(ind1[row_idx]).copy(), list(ind2[max_col_idx]).copy())[0]
 
             for col_idx in range(similarity_matrix.shape[1]):
                 non_equals = similarity_matrix[:, col_idx][similarity_matrix[:, col_idx] != 1.0]
                 if len(non_equals):# and np.random.random() < self.crossover_prob:
-                    max_row_idx = np.argmax(similarity_matrix[:, col_idx])
+                    max_row_idx = np.argmax(similarity_matrix[:, col_idx][similarity_matrix[:, col_idx] != 1.0])
                     ind2[col_idx] = euclidean_barycenter([list(ind1[max_row_idx]).copy(), list(ind2[col_idx]).copy()])
                     ind2[col_idx] = ind2[col_idx][~np.isnan(ind2[col_idx])]
-                    #if np.random.random() < 0.5:
-                    #    ind2[col_idx] = tools.cxOnePoint(list(ind1[max_row_idx]).copy(), list(ind2[col_idx]).copy())[0]
-                    #else:
-                    #    ind2[col_idx] = tools.cxTwoPoint(list(ind1[max_row_idx]).copy(), list(ind2[col_idx]).copy())[0]
 
             return ind1, ind2
 

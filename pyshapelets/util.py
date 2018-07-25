@@ -448,7 +448,7 @@ def sdist_sq(x, y):
 
 
 def sdist_with_pos(x, y):
-    if len(y) < len(x): return sdist(y, x)
+    if len(y) < len(x): return sdist_with_pos(y, x)
     min_dist = np.inf
     norm_x = z_norm(x)
     best_pos = 0
