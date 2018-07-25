@@ -102,7 +102,7 @@ def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_
             ofp.write(str(np.reshape(shap, (-1))) + '\n')
 
     with open(timing_out_path, 'w+') as ofp:
-        ofp.write(genetic_time)
+        ofp.write(str(learning_time))
 
     X_distances_train = clf.transform(X_train)
     X_distances_test = clf.transform(X_test)
@@ -129,7 +129,7 @@ def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path, 
             ofp.write(str(np.reshape(shap, (-1))) + '\n')
 
     with open(timing_out_path, 'w+') as ofp:
-        ofp.write(genetic_time)
+        ofp.write(str(genetic_time))
 
     X_distances_train = shap_transformer.transform(X_train)
     X_distances_test = shap_transformer.transform(X_test)
