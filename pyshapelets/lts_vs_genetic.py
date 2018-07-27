@@ -75,7 +75,7 @@ def fit_svm(X_distances_train, y_train, X_distances_test, y_test, out_path):
     hard_preds.to_csv(out_path.split('.')[0]+'_svm_hard.csv')
     proba_preds.to_csv(out_path.split('.')[0]+'_svm_proba.csv')
 
-def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_out_path, pred_out_path):
+def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_out_path, pred_out_path, timing_out_path):
     # Fit LTS model, print metrics on test-set, write away predictions and shapelets
     shapelet_dict = grabocka_params_to_shapelet_size_dict(
             X_train.shape[0], X_train.shape[1], int(nr_shap*X_train.shape[1]), l, r
@@ -101,6 +101,9 @@ def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_
         for shap in clf.shapelets_:
             ofp.write(str(np.reshape(shap, (-1))) + '\n')
 
+    with open(timing_out_path, 'w+') as ofp:
+        ofp.write(str(learning_time))
+
     X_distances_train = clf.transform(X_train)
     X_distances_test = clf.transform(X_test)
 
@@ -110,8 +113,8 @@ def fit_lts(X_train, y_train, X_test, y_test,  nr_shap, l, r, reg, max_it, shap_
     fit_lr(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
     fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
 
-def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path):
-    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=10, plot=False)
+def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path, timing_out_path):
+    genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=50, iterations=50, wait=25, plot=False)
     start = time.time()
     shapelets = genetic_extractor.extract(X_train, y_train)
     shap_transformer = ShapeletTransformer()
@@ -124,6 +127,9 @@ def fit_genetic(X_train, y_train, X_test, y_test, shap_out_path, pred_out_path):
     with open(shap_out_path, 'w+') as ofp:
         for shap in shap_transformer.shapelets:
             ofp.write(str(np.reshape(shap, (-1))) + '\n')
+
+    with open(timing_out_path, 'w+') as ofp:
+        ofp.write(str(genetic_time))
 
     X_distances_train = shap_transformer.transform(X_train)
     X_distances_test = shap_transformer.transform(X_test)
@@ -195,9 +201,13 @@ for dataset in metadata:
 
     fit_lts(X_train, y_train, X_test, y_test, nr_shap, l, r, reg, max_it,
             'results/lts_vs_genetic/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
-            'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
+            'results/lts_vs_genetic/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())), 
+            'results/lts_vs_genetic/{}_learned_runtime_{}.csv'.format(dataset['train']['name'], int(time.time()))
+    )
 
 
     fit_genetic(X_train, y_train, X_test, y_test,  
             'results/lts_vs_genetic/{}_genetic_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
-            'results/lts_vs_genetic/{}_genetic_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())))
+            'results/lts_vs_genetic/{}_genetic_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())),
+            'results/lts_vs_genetic/{}_genetic_runtime_{}.csv'.format(dataset['train']['name'], int(time.time()))
+    )

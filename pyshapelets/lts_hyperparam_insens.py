@@ -32,8 +32,8 @@ def grabocka_params_to_shapelet_size_dict(n_ts, ts_sz, n_shapelets, l, r):
 np.random.seed(1337)
 random.seed(1337)
 
-TRAIN_PATH = 'data/partitioned/Coffee/Coffee_train.csv'
-TEST_PATH = 'data/partitioned/Coffee/Coffee_test.csv'
+TRAIN_PATH = 'data/partitioned/MoteStrain/MoteStrain_train.csv'
+TEST_PATH = 'data/partitioned/MoteStrain/MoteStrain_test.csv'
 
 # Load the training and testing dataset (features + label vector)
 train_df = pd.read_csv(TRAIN_PATH)

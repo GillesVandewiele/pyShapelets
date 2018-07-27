@@ -711,14 +711,14 @@ class GeneticExtractor(Extractor):
             L = []
             for k in range(len(self.timeseries)):
                 D = self.timeseries[k, :]
-                dist = util.sdist(shapelet, D)
+                dist = util.sdist_no_norm(shapelet, D)
                 L.append((dist, self.labels[k]))
             return self.metric(L)
 
         def mutation(pcls, shapelet):
-            if np.random.random() < self.mutation_prob:
-                tools.mutGaussian(shapelet, mu=0, sigma=0.1, indpb=0.1)[0]
+            return tools.mutGaussian(shapelet, mu=0, sigma=0.1, indpb=0.1)[0]
 
+            """
             if np.random.random() < self.mutation_prob:
                 rand_idx = np.random.randint(len(shapelet))
                 del shapelet[rand_idx]
@@ -727,12 +727,14 @@ class GeneticExtractor(Extractor):
                 rand_idx = np.random.randint(len(shapelet))
                 rand_elt = np.random.rand() * 2 - 1
                 shapelet.insert(rand_idx, rand_elt)
+            """
 
 
         toolbox = base.Toolbox()
         toolbox.register("mate_one", tools.cxOnePoint)
         toolbox.register("mate_two", tools.cxTwoPoint)
-        toolbox.register("mutate", mutation, creator.Individual)
+        #toolbox.register("mutate", mutation, creator.Individual)
+        toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.2)
 
         toolbox.register("individual",  tools.initIterate, creator.Individual, random_shapelet)
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -775,8 +777,9 @@ class GeneticExtractor(Extractor):
 
             # Apply mutation to each individual
             for idx, indiv in enumerate(offspring):
-                toolbox.mutate(indiv)
-                del indiv.fitness.values
+                if np.random.random() < self.mutation_prob:
+                    toolbox.mutate(indiv)
+                    del indiv.fitness.values
 
             # Update the fitness values            
             invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
