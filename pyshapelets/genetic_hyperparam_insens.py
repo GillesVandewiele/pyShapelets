@@ -47,7 +47,7 @@ y_test = y_test.values
 
 measurements = []
 
-for pop_size in [5, 25, 50, 100, 250, 500, 1000]:
+for pop_size in [5, 25, 50, 100, 250, 500]:
     genetic_extractor = MultiGeneticExtractor(verbose=True, population_size=pop_size, iterations=50, wait=10, plot=False)
     shapelets = genetic_extractor.extract(X_train, y_train)
     shap_transformer = ShapeletTransformer()
