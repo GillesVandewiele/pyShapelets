@@ -6,7 +6,6 @@ import time
 # pip-installable libraries
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import trange
 from deap import base, creator, algorithms, tools
 from deap.benchmarks.tools import diversity

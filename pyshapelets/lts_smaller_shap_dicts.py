@@ -7,7 +7,6 @@ import ast
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from algorithms import ShapeletTransformer
 from extractors.extractor import MultiGeneticExtractor
@@ -48,7 +47,7 @@ def fit_rf(X_distances_train, y_train, X_distances_test, y_test, out_path):
     hard_preds.to_csv(out_path.split('.')[0]+'_rf_hard.csv')
     proba_preds.to_csv(out_path.split('.')[0]+'_rf_proba.csv')
 
-def fit_lr(X_distances_train, y_train, X_distances_test, y_test, out_path):
+def fit_lr(X_distances_train, y_train, X_distances_test, y_test, out_path):                                                                                                                     
     lr = GridSearchCV(LogisticRegression(), {'penalty': ['l1', 'l2'], 'C': [0.001, 0.01, 0.1, 1.0, 10.0]})
     lr.fit(X_distances_train, y_train)
     
@@ -115,51 +114,28 @@ def fit_lts(X_train, y_train, X_test, y_test, shap_dict, reg, max_it, shap_out_p
     fit_svm(X_distances_train, y_train, X_distances_test, y_test, pred_out_path)
 
 hyper_parameters_lts = {
-	'Adiac': 					[0.3,  0.2,   3, 0.01, 10000],
-	'Beef': 					[0.15, 0.125, 3, 0.01, 10000],
-	'BeetleFly': 				[0.15, 0.125, 1, 0.01, 5000],
-	'BirdChicken': 				[0.3,  0.075, 1, 0.1,  10000],
-	'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
-	'Coffee': 					[0.05, 0.075, 2, 0.01, 5000],
-	'DiatomSizeReduction': 		[0.3,  0.175, 2, 0.01, 10000],
-	'ECGFiveDays': 				[0.05, 0.125, 2, 0.01, 10000],
-	'FaceFour': 				[0.3,  0.175, 3, 1.0,  5000],
-	'GunPoint': 				[0.15, 0.2,   3, 0.1,  10000],
-	'ItalyPowerDemand':			[0.3,  0.2,   3, 0.01, 5000],
-	'Lightning7': 				[0.05, 0.075, 3, 1,    5000],
-	'MedicalImages': 			[0.3,  0.2,   2, 1,    10000],
-	'MoteStrain': 				[0.3,  0.2,   3, 1,    10000],
-	#NOT AVAILABLE#'Otoliths': 				[0.15, 0.125, 3, 0.01, 2000],
-	'SonyAIBORobotSurface1': 	[0.3,  0.125, 2, 0.01, 10000],
-	'SonyAIBORobotSurface2': 	[0.3,  0.125, 2, 0.01, 10000],
-	'Symbols': 					[0.05, 0.175, 1, 0.1,  5000],
-	'SyntheticControl': 		[0.15, 0.125, 3, 0.01, 5000],
-	'Trace': 					[0.15, 0.125, 2, 0.1,  10000],
-	'TwoLeadECG': 				[0.3,  0.075, 1, 0.1,  10000]
+    'Adiac':                     [0.3,  0.2,   3, 0.01, 10000],
+    'Beef':                     [0.15, 0.125, 3, 0.01, 10000],
+    'BeetleFly':                 [0.15, 0.125, 1, 0.01, 5000],
+    'BirdChicken':                 [0.3,  0.075, 1, 0.1,  10000],
+    'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
+    'Coffee':                     [0.05, 0.075, 2, 0.01, 5000],
+    'DiatomSizeReduction':         [0.3,  0.175, 2, 0.01, 10000],
+    #'ECGFiveDays':                 [0.05, 0.125, 2, 0.01, 10000],
+    'FaceFour':                 [0.3,  0.175, 3, 1.0,  5000],
+    'GunPoint':                 [0.15, 0.2,   3, 0.1,  10000],
+    #'ItalyPowerDemand':            [0.3,  0.2,   3, 0.01, 5000],
+    'Lightning7':                 [0.05, 0.075, 3, 1,    5000],
+    'MedicalImages':             [0.3,  0.2,   2, 1,    10000],
+    #'MoteStrain':                 [0.3,  0.2,   3, 1,    10000],
+    #NOT AVAILABLE#'Otoliths':                 [0.15, 0.125, 3, 0.01, 2000],
+    #'SonyAIBORobotSurface1':     [0.3,  0.125, 2, 0.01, 10000],
+    #'SonyAIBORobotSurface2':     [0.3,  0.125, 2, 0.01, 10000],
+    'Symbols':                     [0.05, 0.175, 1, 0.1,  5000],
+    'SyntheticControl':         [0.15, 0.125, 3, 0.01, 5000],
+    'Trace':                     [0.15, 0.125, 2, 0.1,  10000],
+    #'TwoLeadECG':                 [0.3,  0.075, 1, 0.1,  10000]
 }
-
-datasets = [
-    'Adiac',
-    'Beef',
-    'BeetleFly',
-    'BirdChicken',
-    'ChlorineConcentration',
-    'Coffee',
-    'ECGFiveDays',
-    'FaceFour',
-    'GunPoint',
-    'ItalyPowerDemand',
-    'Lightning7',
-    'MedicalImages',
-    'MoteStrain',
-    'SonyAIBORobotSurface1',
-    'SonyAIBORobotSurface2',
-    'Symbols',
-    'SyntheticControl',
-    'Trace',
-    'TwoLeadECG',
-    'DiatomSizeReduction'
-]
 
 learning_sizes = defaultdict(list)
 genetic_sizes = defaultdict(list)
@@ -167,7 +143,7 @@ genetic_sizes = defaultdict(list)
 metadata = sorted(load_data_train_test(), key=lambda x: x['train']['n_samples']**2*x['train']['n_features']**3)
 
 for dataset in metadata:
-
+    if dataset['train']['name'] not in hyper_parameters_lts: continue
     train_df = pd.read_csv(dataset['train']['data_path'])
     test_df = pd.read_csv(dataset['test']['data_path'])
     X_train = train_df.drop('target', axis=1).values
@@ -188,20 +164,23 @@ for dataset in metadata:
     
     files = glob.glob('results/lts_vs_genetic/{}_genetic_shapelets*.txt'.format(dataset['train']['name']))
     if len(files):
-	    sizes = []
-	    for f in files:
-	        shaps = parse_shapelets(open(f, 'r').read())
-	        genetic_sizes[dataset['train']['name']].append(len(shaps))
-	        for s in shaps:
-	        	sizes.append(len(s))
-	        
-	    shap_dict_cntr = Counter(np.random.choice(sizes, size=int(np.mean(genetic_sizes[dataset['train']['name']]))))
-	    shap_dict = {}
-	    for c in shap_dict_cntr:
-	    	shap_dict[int(c)] = int(shap_dict_cntr[c])
+        sizes = []
+        for f in files:
+            shaps = parse_shapelets(open(f, 'r').read())
+            genetic_sizes[dataset['train']['name']].append(len(shaps))
+            for s in shaps:
+                sizes.append(len(s))
+            
+        shap_dict_cntr = Counter(np.random.choice(sizes, size=int(np.mean(genetic_sizes[dataset['train']['name']]))))
+        shap_dict = {}
+        for c in shap_dict_cntr:
+            shap_dict[int(c)] = int(shap_dict_cntr[c])
+            
+        print(dataset['train']['name'], shap_dict)
+            
+        fit_lts(X_train, y_train, X_test, y_test, dict(shap_dict), reg, max_it,
+                'results/lts_smaller/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
+                'results/lts_smaller/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())), 
+                'results/lts_smaller/{}_learned_runtime_{}.csv'.format(dataset['train']['name'], int(time.time()))
+        )
 
-	    fit_lts(X_train, y_train, X_test, y_test, dict(shap_dict), reg, max_it,
-	            'results/lts_smaller/{}_learned_shapelets_{}.txt'.format(dataset['train']['name'], int(time.time())), 
-	            'results/lts_smaller/{}_learned_shapelets_predictions_{}.csv'.format(dataset['train']['name'], int(time.time())), 
-	            'results/lts_smaller/{}_learned_runtime_{}.csv'.format(dataset['train']['name'], int(time.time()))
-	    )
