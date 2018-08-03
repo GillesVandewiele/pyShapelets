@@ -121,20 +121,20 @@ hyper_parameters_lts = {
     'ChlorineConcentration':    [0.3,  0.2,   3, 0.01, 10000],
     'Coffee':                     [0.05, 0.075, 2, 0.01, 5000],
     'DiatomSizeReduction':         [0.3,  0.175, 2, 0.01, 10000],
-    #'ECGFiveDays':                 [0.05, 0.125, 2, 0.01, 10000],
+    'ECGFiveDays':                 [0.05, 0.125, 2, 0.01, 10000],
     'FaceFour':                 [0.3,  0.175, 3, 1.0,  5000],
     'GunPoint':                 [0.15, 0.2,   3, 0.1,  10000],
-    #'ItalyPowerDemand':            [0.3,  0.2,   3, 0.01, 5000],
+    'ItalyPowerDemand':            [0.3,  0.2,   3, 0.01, 5000],
     'Lightning7':                 [0.05, 0.075, 3, 1,    5000],
     'MedicalImages':             [0.3,  0.2,   2, 1,    10000],
-    #'MoteStrain':                 [0.3,  0.2,   3, 1,    10000],
+    'MoteStrain':                 [0.3,  0.2,   3, 1,    10000],
     #NOT AVAILABLE#'Otoliths':                 [0.15, 0.125, 3, 0.01, 2000],
-    #'SonyAIBORobotSurface1':     [0.3,  0.125, 2, 0.01, 10000],
-    #'SonyAIBORobotSurface2':     [0.3,  0.125, 2, 0.01, 10000],
+    'SonyAIBORobotSurface1':     [0.3,  0.125, 2, 0.01, 10000],
+    'SonyAIBORobotSurface2':     [0.3,  0.125, 2, 0.01, 10000],
     'Symbols':                     [0.05, 0.175, 1, 0.1,  5000],
     'SyntheticControl':         [0.15, 0.125, 3, 0.01, 5000],
     'Trace':                     [0.15, 0.125, 2, 0.1,  10000],
-    #'TwoLeadECG':                 [0.3,  0.075, 1, 0.1,  10000]
+    'TwoLeadECG':                 [0.3,  0.075, 1, 0.1,  10000]
 }
 
 learning_sizes = defaultdict(list)
