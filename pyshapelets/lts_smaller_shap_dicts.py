@@ -143,6 +143,7 @@ genetic_sizes = defaultdict(list)
 metadata = sorted(load_data_train_test(), key=lambda x: x['train']['n_samples']**2*x['train']['n_features']**3)
 
 for dataset in metadata:
+    print(dataset['train']['name'], len(dataset['train']['name']), dataset['train']['name'] in hyper_parameters_lts)
     if dataset['train']['name'] not in hyper_parameters_lts: continue
     train_df = pd.read_csv(dataset['train']['data_path'])
     test_df = pd.read_csv(dataset['test']['data_path'])
